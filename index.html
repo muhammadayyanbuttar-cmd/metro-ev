@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metro Lyallpur EV — Invoice Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
+<style>
+  :root {
+    --green: #1a7a4a;
+    --green-mid: #2d9e63;
+    --green-light: #e8f5ee;
+    --green-xlight: #f2faf6;
+    --ink: #0f1f17;
+    --ink-mid: #2c3d35;
+    --ink-soft: #637068;
+    --border: #d0ddd6;
+    --border-light: #e8f0eb;
+    --bg: #f7fbf9;
+    --white: #ffffff;
+    --red: #c0392b;
+    --red-light: #fdecea;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; }
+  
+  /* ── LAYOUT ── */
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--ink); flex-shrink: 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { padding: 20px 16px 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar-brand .logo-badge { display: inline-flex; align-items: center; gap: 8px; }
+  .sidebar-brand .logo-icon { width: 28px; height: 28px; background: var(--green-mid); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .sidebar-brand .brand-name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .sidebar-brand .brand-sub { font-size: 10px; color: rgba(255,255,255,.5); letter-spacing: .3px; }
+  .sidebar-nav { padding: 12px 8px; flex: 1; }
+  .nav-section { font-size: 10px; font-weight: 600; color: rgba(255,255,255,.35); letter-spacing: .8px; padding: 8px 8px 4px; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; color: rgba(255,255,255,.65); font-size: 13px; font-weight: 450; transition: all .15s; margin-bottom: 1px; }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav-item.active { background: var(--green); color: #fff; font-weight: 500; }
+  .nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+  .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+  .gs-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,.5); padding: 8px; }
+  .gs-dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; flex-shrink: 0; }
+  .gs-dot.connected { background: #4ade80; }
+
+  .main { flex: 1; overflow-x: hidden; }
+  .topbar { background: var(--white); border-bottom: 1px solid var(--border-light); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .page { padding: 24px 28px; display: none; }
+  .page.active { display: block; }
+
+  /* ── BUTTONS ── */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; font-family: inherit; line-height: 1; }
+  .btn-primary { background: var(--green); color: #fff; }
+  .btn-primary:hover { background: var(--green-mid); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink-mid); }
+  .btn-outline:hover { background: var(--green-xlight); border-color: var(--green); color: var(--green); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { opacity: .88; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-ghost { background: transparent; border: none; color: var(--ink-soft); padding: 6px 8px; border-radius: 6px; }
+  .btn-ghost:hover { background: var(--green-xlight); color: var(--green); }
+  .btn-icon { width: 32px; height: 32px; padding: 0; justify-content: center; }
+
+  /* ── CARDS ── */
+  .card { background: var(--white); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow); }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-body { padding: 20px; }
+
+  /* ── FORMS ── */
+  .form-grid { display: grid; gap: 16px; }
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; position: relative; }
+  .form-label { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
+  .form-label .required { color: var(--red); }
+  .form-input, .form-select, .form-textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 13px; color: var(--ink); background: var(--white); outline: none; transition: border-color .15s; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px rgba(45,158,99,.12); }
+  .form-textarea { resize: vertical; min-height: 72px; }
+  .form-hint { font-size: 11px; color: var(--ink-soft); }
+  .form-computed { background: var(--green-xlight); border-color: var(--border-light); color: var(--green); font-weight: 500; }
+
+  /* VIN Dropdown */
+  .vin-wrapper { position: relative; }
+  .vin-dropdown { position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 200; max-height: 200px; overflow-y: auto; display: none; }
+  .vin-dropdown.open { display: block; }
+  .vin-option { padding: 9px 12px; cursor: pointer; font-size: 12px; font-family: 'JetBrains Mono', monospace; border-bottom: 1px solid var(--border-light); transition: background .1s; }
+  .vin-option:last-child { border-bottom: none; }
+  .vin-option:hover, .vin-option.highlighted { background: var(--green-xlight); color: var(--green); }
+  .vin-option .vin-label { font-size: 10px; font-family: inherit; color: var(--ink-soft); margin-top: 1px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--green-xlight); color: var(--green); font-size: 11px; font-weight: 600; text-align: left; padding: 9px 14px; border-bottom: 2px solid var(--border-light); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--ink-mid); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--green-xlight); }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+
+  /* ── SEARCH BAR ── */
+  .search-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .search-input-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-input-wrap input { padding-left: 34px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-soft); font-size: 14px; pointer-events: none; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; border-bottom: 2px solid var(--border-light); margin-bottom: 20px; }
+  .tab { padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--ink-soft); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+  .tab:hover:not(.active) { color: var(--ink); }
+
+  /* ── MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.2); width: 100%; max-width: 740px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--white); z-index: 1; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* ── SETUP PAGE ── */
+  .setup-field { display: flex; gap: 10px; align-items: center; }
+  .setup-field .form-input { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+  /* ── STATS ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: var(--white); border: 1px solid var(--border-light); border-radius: 10px; padding: 16px 18px; }
+  .stat-label { font-size: 11px; font-weight: 500; color: var(--ink-soft); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--ink); }
+  .stat-value.green { color: var(--green); }
+  .stat-sub { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+
+  /* ── TOAST ── */
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 10px; min-width: 240px; animation: slideUp .2s ease; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+  @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* ── MISC ── */
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--ink-soft); }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 15px; font-weight: 600; color: var(--ink-mid); margin-bottom: 6px; }
+  .divider { border: none; border-top: 1px solid var(--border-light); margin: 16px 0; }
+  .text-mono { font-family: 'JetBrains Mono', monospace; }
+  .text-sm { font-size: 12px; }
+  .text-muted { color: var(--ink-soft); }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mt-4 { margin-top: 16px; }
+  .fw-6 { font-weight: 600; }
+
+  /* ── PAGINATION ── */
+  .pagination { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 14px 0 4px; }
+  .page-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--white); font-size: 12px; cursor: pointer; color: var(--ink-mid); }
+  .page-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+  .page-btn:hover:not(.active) { background: var(--green-xlight); }
+
+  /* VIN MANAGER */
+  .vin-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); color: var(--green); padding: 4px 10px 4px 10px; border-radius: 20px; font-size: 11px; font-family: 'JetBrains Mono', monospace; margin: 3px; }
+  .vin-tag button { background: none; border: none; cursor: pointer; color: var(--green); font-size: 14px; line-height: 1; padding: 0 0 0 2px; }
+
+  @media (max-width: 768px) {
+    .sidebar { width: 56px; }
+    .sidebar-brand .brand-name, .sidebar-brand .brand-sub, .nav-item span, .nav-section { display: none; }
+    .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .page { padding: 16px; }
+    .topbar { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-badge">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <div class="brand-name">Metro Lyallpur EV</div>
+          <div class="brand-sub">Invoice Manager</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <div class="nav-item active" onclick="navigateTo('dashboard')">
+        <span class="nav-icon">📊</span><span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="navigateTo('new-invoice')">
+        <span class="nav-icon">➕</span><span>New Invoice</span>
+      </div>
+      <div class="nav-item" onclick="navigateTo('invoices')">
+        <span class="nav-icon">📋</span><span>Invoices</span>
+      </div>
+      <div class="nav-section">Data</div>
+      <div class="nav-item" onclick="navigateTo('vin-manager')">
+        <span class="nav-icon">🚗</span><span>VIN Manager</span>
+      </div>
+      <div class="nav-item" onclick="navigateTo('legacy-import')">
+        <span class="nav-icon">📥</span><span>Legacy Import</span>
+      </div>
+      <div class="nav-section">Config</div>
+      <div class="nav-item" onclick="navigateTo('settings')">
+        <span class="nav-icon">⚙️</span><span>Settings</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="gs-status">
+        <div class="gs-dot" id="gs-dot"></div>
+        <span id="gs-status-text">Not connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn btn-outline btn-sm" id="sync-btn" onclick="flushDirty()">☁ Synced</button>
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('new-invoice')">+ New Invoice</button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total Invoices</div>
+          <div class="stat-value green" id="stat-total">0</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="stat-month">0</div>
+          <div class="stat-sub" id="stat-month-label">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Revenue (Month)</div>
+          <div class="stat-value green" id="stat-revenue">₨0</div>
+          <div class="stat-sub">Excl. sales tax</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">VINs in Registry</div>
+          <div class="stat-value" id="stat-vins">0</div>
+          <div class="stat-sub">Registered vehicles</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Invoices</span>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('invoices')">View All</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table id="recent-table">
+              <thead><tr><th>Ref No.</th><th>Date</th><th>Customer</th><th>VIN</th><th>Amount</th><th></th></tr></thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW INVOICE -->
+    <div class="page" id="page-new-invoice">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="invoice-form-title">New Invoice</span>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="resetInvoiceForm()">Clear</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="form-grid mb-4">
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label class="form-label">Ref No. <span class="required">*</span></label>
+                <input class="form-input text-mono" id="f-ref" placeholder="26/001" value="">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date <span class="required">*</span></label>
+                <input class="form-input" type="date" id="f-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mode of Payment</label>
+                <input class="form-input" id="f-mode" placeholder="Cash / Bank Transfer">
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider">
+          <div class="fw-6 text-sm mb-4" style="color:var(--green)">Customer Information</div>
+
+          <div class="form-grid form-grid-2 mb-4">
+            <div class="form-group">
+              <label class="form-label">Customer Name <span class="required">*</span></label>
+              <input class="form-input" id="f-name" placeholder="Full Name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CNIC</label>
+              <input class="form-input text-mono" id="f-cnic" placeholder="XXXXX-XXXXXXX-X">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contact No.</label>
+              <input class="form-input" id="f-contact" placeholder="03XX-XXXXXXX">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Address</label>
+              <input class="form-input" id="f-address" placeholder="Street, City">
+            </div>
+          </div>
+
+          <hr class="divider">
+          <div class="fw-6 text-sm mb-4" style="color:var(--green)">Vehicle Details</div>
+
+          <div class="form-grid form-grid-3 mb-4">
+            <div class="form-group">
+              <label class="form-label">VIN <span class="required">*</span></label>
+              <div class="vin-wrapper">
+                <input class="form-input text-mono" id="f-vin" placeholder="Type or select VIN..." autocomplete="off" oninput="onVinInput(this)" onfocus="onVinInput(this)" onblur="closeVinDropdown()">
+                <div class="vin-dropdown" id="vin-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Motor Number</label>
+              <input class="form-input text-mono" id="f-motor" placeholder="Motor No.">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Colour</label>
+              <input class="form-input" id="f-colour" placeholder="e.g. Electric Blue">
+            </div>
+          </div>
+
+          <hr class="divider">
+          <div class="fw-6 text-sm mb-4" style="color:var(--green)">Sale Details</div>
+
+          <div class="form-grid form-grid-2 mb-4">
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Particular <span class="required">*</span></label>
+              <input class="form-input" id="f-particular" placeholder="e.g. Metro Wonder Bike">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quantity</label>
+              <input class="form-input" type="number" id="f-quantity" value="1" min="1" oninput="recalcAmounts()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount (incl. 1% Sales Tax) <span class="required">*</span></label>
+              <input class="form-input" type="number" id="f-amount" placeholder="0.00" oninput="recalcAmounts()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount excl. Sales Tax</label>
+              <input class="form-input form-computed text-mono" id="f-amt-ex" readonly placeholder="Auto">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sales Tax (1%)</label>
+              <input class="form-input form-computed text-mono" id="f-sales-tx" readonly placeholder="Auto">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total</label>
+              <input class="form-input form-computed text-mono" id="f-total" readonly placeholder="Auto">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bank (if applicable)</label>
+              <input class="form-input" id="f-bank" placeholder="Bank name / branch">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dealt By</label>
+              <input class="form-input" id="f-dealt-by" placeholder="Sales rep name">
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-4" style="justify-content:flex-end">
+            <button class="btn btn-outline" onclick="resetInvoiceForm()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveInvoice()">💾 Save Invoice</button>
+            <button class="btn btn-outline" id="btn-export-word" onclick="exportWord()" style="display:none">📄 Export Word</button>
+            <button class="btn btn-outline" id="btn-export-pdf" onclick="exportPdf()" style="display:none">🖨 Export PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICES LIST -->
+    <div class="page" id="page-invoices">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="form-input" id="search-q" placeholder="Search name, VIN, ref no..." oninput="renderInvoices()">
+        </div>
+        <input class="form-input" type="date" id="search-from" style="width:160px" oninput="renderInvoices()" title="From date">
+        <input class="form-input" type="date" id="search-to" style="width:160px" oninput="renderInvoices()" title="To date">
+        <button class="btn btn-outline btn-sm" onclick="clearSearch()">Clear</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Ref No.</th><th>Date</th><th>Customer</th><th>VIN</th><th>Particular</th><th>Amount</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-tbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIN MANAGER -->
+    <div class="page" id="page-vin-manager">
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">Add / Import VINs</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid form-grid-3">
+            <div class="form-group">
+              <label class="form-label">VIN</label>
+              <input class="form-input text-mono" id="vin-input" placeholder="Enter VIN number...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Model / Description</label>
+              <input class="form-input" id="vin-desc" placeholder="e.g. Metro Wonder Bike">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Colour</label>
+              <input class="form-input" id="vin-colour" placeholder="Colour">
+            </div>
+          </div>
+          <div class="flex gap-2 mt-4">
+            <button class="btn btn-primary" onclick="addVin()">+ Add VIN</button>
+            <label class="btn btn-outline" style="cursor:pointer">
+              📂 Bulk Import CSV
+              <input type="file" accept=".csv,.txt" style="display:none" onchange="importVinCSV(this)">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">VIN Registry</span>
+          <span class="text-sm text-muted" id="vin-count">0 VINs</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>VIN</th><th>Model</th><th>Colour</th><th>Actions</th></tr></thead>
+              <tbody id="vin-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEGACY IMPORT -->
+    <div class="page" id="page-legacy-import">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Import Legacy Records</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-sm mb-4">Import records from your previous invoicing software (JSON format). Legacy IDs will be replaced by new sequential IDs continuing from your current records.</p>
+          <div class="form-group mb-4">
+            <label class="form-label">Paste JSON or upload file</label>
+            <textarea class="form-textarea" id="legacy-json" rows="10" placeholder='[{"id":1,"date":"01/09/2025","invoice_number":"25/25","vin":"VIN123","name":"Customer","particulars":"Bike","amount":105000,"total":105000,"timestamp":"..."}]'></textarea>
+          </div>
+          <div class="flex gap-2">
+            <label class="btn btn-outline" style="cursor:pointer">
+              📂 Load JSON File
+              <input type="file" accept=".json" style="display:none" onchange="loadLegacyFile(this)">
+            </label>
+            <button class="btn btn-primary" onclick="importLegacy()">Import Records</button>
+          </div>
+          <div id="legacy-preview" class="mt-4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="card mb-4" style="border-color:var(--border)">
+        <div class="card-body" style="padding:12px 18px">
+          <div class="flex items-center gap-2" style="font-size:13px">
+            <span>🖨</span>
+            <span id="server-status" style="color:var(--ink-soft)">Checking invoice template service…</span>
+            <button class="btn btn-ghost btn-sm" onclick="checkTemplateServer()" style="margin-left:auto">↻ Recheck</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><span class="card-title">Google Sheets Connection</span></div>
+        <div class="card-body">
+          <p class="text-muted text-sm mb-4">Connect to Google Sheets for cloud storage. Paste your Sheets web app URL below (deploy your Apps Script as a web app first).</p>
+          <div class="form-group mb-3">
+            <label class="form-label">Apps Script Web App URL</label>
+            <div class="setup-field">
+              <input class="form-input" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" type="url">
+              <button class="btn btn-primary" onclick="saveGsUrl()">Save</button>
+              <button class="btn btn-outline" onclick="testConnection()">Test</button>
+            </div>
+            <span class="form-hint">Deploy your Google Apps Script as a web app and paste the URL here.</span>
+          </div>
+          <div class="card" style="background:var(--green-xlight);border-color:var(--border)">
+            <div class="card-body">
+              <div class="fw-6 text-sm mb-4" style="color:var(--green)">Apps Script Setup Guide</div>
+              <ol style="padding-left:18px;font-size:13px;line-height:2;color:var(--ink-mid)">
+                <li>Open <strong>Google Sheets</strong> → Extensions → Apps Script</li>
+                <li>Paste the code from <code style="background:#fff;padding:2px 6px;border-radius:4px;font-size:11px">google-apps-script.js</code> (included in this project folder)</li>
+                <li>Click <strong>Deploy → New deployment</strong> → Web App</li>
+                <li>Set "Execute as: Me" and "Who has access: Anyone"</li>
+                <li>Copy the Web App URL and paste it above</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><span class="card-title">Invoice Defaults</span></div>
+        <div class="card-body">
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Default Ref Year</label>
+              <input class="form-input" id="s-ref-year" placeholder="26" maxlength="2">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Next Ref Number</label>
+              <input class="form-input" id="s-ref-next" type="number" placeholder="001">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Default Dealt By</label>
+              <input class="form-input" id="s-dealt-by" placeholder="Sales rep name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Template Folder Path</label>
+              <input class="form-input" id="s-template-path" placeholder="./templates/">
+              <span class="form-hint">Place invoice.docx template in this folder</span>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-4" onclick="saveSettings()">Save Settings</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Data Management</span></div>
+        <div class="card-body">
+          <div class="flex gap-2">
+            <button class="btn btn-outline" onclick="exportAllJSON()">⬇ Export All (JSON)</button>
+            <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑 Clear All Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT INVOICE MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Invoice</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('edit-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-3 mb-4">
+        <div class="form-group">
+          <label class="form-label">Ref No.</label>
+          <input class="form-input text-mono" id="e-ref">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" type="date" id="e-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mode</label>
+          <input class="form-input" id="e-mode">
+        </div>
+      </div>
+      <div class="form-grid form-grid-2 mb-4">
+        <div class="form-group">
+          <label class="form-label">Customer Name</label>
+          <input class="form-input" id="e-name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">CNIC</label>
+          <input class="form-input text-mono" id="e-cnic">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contact</label>
+          <input class="form-input" id="e-contact">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input class="form-input" id="e-address">
+        </div>
+      </div>
+      <div class="form-grid form-grid-3 mb-4">
+        <div class="form-group">
+          <label class="form-label">VIN</label>
+          <div class="vin-wrapper">
+            <input class="form-input text-mono" id="e-vin" autocomplete="off" oninput="onVinInputEdit(this)" onfocus="onVinInputEdit(this)" onblur="closeVinDropdownEdit()">
+            <div class="vin-dropdown" id="vin-dropdown-edit"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motor Number</label>
+          <input class="form-input text-mono" id="e-motor">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Colour</label>
+          <input class="form-input" id="e-colour">
+        </div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Particular</label>
+          <input class="form-input" id="e-particular">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input class="form-input" type="number" id="e-quantity" oninput="recalcEdit()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (incl. tax)</label>
+          <input class="form-input" type="number" id="e-amount" oninput="recalcEdit()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amt excl. tax</label>
+          <input class="form-input form-computed text-mono" id="e-amt-ex" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sales Tax (1%)</label>
+          <input class="form-input form-computed text-mono" id="e-sales-tx" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total</label>
+          <input class="form-input form-computed text-mono" id="e-total" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bank</label>
+          <input class="form-input" id="e-bank">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dealt By</label>
+          <input class="form-input" id="e-dealt-by">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="exportWordById()">📄 Word</button>
+      <button class="btn btn-outline btn-sm" onclick="exportPdfById()">🖨 PDF</button>
+      <button class="btn btn-outline" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateInvoice()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT VIN MODAL -->
+<div class="modal-overlay" id="vin-edit-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Edit VIN</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('vin-edit-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">VIN</label>
+          <input class="form-input text-mono" id="ve-vin">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model / Description</label>
+          <input class="form-input" id="ve-desc">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Colour</label>
+          <input class="form-input" id="ve-colour">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('vin-edit-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVinEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let invoices = [];
+let vins = [];
+let settings = {};
+let currentEditId = null;
+let currentEditVinIdx = null;
+let currentPage = 1;
+const PAGE_SIZE = 15;
+
+// Dirty tracking — only sync what changed
+// dirtyInvoices: Set of invoice IDs that need upsert
+// deletedInvoices: Set of invoice IDs that need deletion in Sheets
+// vinsChanged: boolean — VIN registry needs a full resync (it's small, always full-replace)
+let dirtyInvoices  = new Set();
+let deletedInvoices = new Set();
+let vinsChanged    = false;
+
+function markDirty(id)      { dirtyInvoices.add(id); saveDirty(); }
+function markDeleted(id)    { dirtyInvoices.delete(id); deletedInvoices.add(id); saveDirty(); }
+function markVinsDirty()    { vinsChanged = true; saveDirty(); }
+function clearDirty()       { dirtyInvoices.clear(); deletedInvoices.clear(); vinsChanged = false; saveDirty(); }
+
+function saveDirty() {
+  localStorage.setItem('mlev_dirty', JSON.stringify({
+    inv:  [...dirtyInvoices],
+    del:  [...deletedInvoices],
+    vins: vinsChanged,
+  }));
+  updatePendingBadge();
+}
+
+function loadDirty() {
+  try {
+    const d = JSON.parse(localStorage.getItem('mlev_dirty') || '{}');
+    dirtyInvoices   = new Set(d.inv  || []);
+    deletedInvoices = new Set(d.del  || []);
+    vinsChanged     = !!d.vins;
+  } catch { dirtyInvoices = new Set(); deletedInvoices = new Set(); vinsChanged = false; }
+}
+
+function updatePendingBadge() {
+  const total = dirtyInvoices.size + deletedInvoices.size + (vinsChanged ? 1 : 0);
+  const btn = document.getElementById('sync-btn');
+  if (!btn) return;
+  btn.textContent = total > 0 ? `☁ Sync (${total} pending)` : '☁ Synced';
+  btn.style.borderColor = total > 0 ? 'var(--amber)' : '';
+  btn.style.color       = total > 0 ? 'var(--amber)' : '';
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+function init() {
+  loadFromStorage();
+  applySettings();
+  updateDashboard();
+  renderInvoices();
+  renderVins();
+  setDefaultDate();
+  setNextRef();
+  updatePendingBadge();
+}
+
+function loadFromStorage() {
+  try {
+    invoices = JSON.parse(localStorage.getItem('mlev_invoices') || '[]');
+    vins     = JSON.parse(localStorage.getItem('mlev_vins')     || '[]');
+    settings = JSON.parse(localStorage.getItem('mlev_settings') || '{}');
+  } catch(e) { invoices = []; vins = []; settings = {}; }
+  loadDirty();
+}
+
+function save() {
+  localStorage.setItem('mlev_invoices', JSON.stringify(invoices));
+  localStorage.setItem('mlev_vins', JSON.stringify(vins));
+  localStorage.setItem('mlev_settings', JSON.stringify(settings));
+}
+
+function applySettings() {
+  if (settings.gsUrl) {
+    document.getElementById('gs-url').value = settings.gsUrl;
+    updateGsDot(true);
+  }
+  if (settings.refYear) document.getElementById('s-ref-year').value = settings.refYear;
+  if (settings.dealtBy) document.getElementById('s-dealt-by').value = settings.dealtBy;
+  if (settings.templatePath) document.getElementById('s-template-path').value = settings.templatePath;
+}
+
+function setDefaultDate() {
+  const d = new Date();
+  const iso = d.toISOString().split('T')[0];
+  document.getElementById('f-date').value = iso;
+}
+
+function setNextRef() {
+  const year = settings.refYear || new Date().getFullYear().toString().slice(-2);
+  let next = settings.refNext || 1;
+  document.getElementById('f-ref').value = `${year}/${String(next).padStart(3,'0')}`;
+  document.getElementById('s-ref-year').value = year;
+  document.getElementById('s-ref-next').value = next;
+}
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+const pageTitles = {
+  'dashboard':'Dashboard','new-invoice':'New Invoice','invoices':'All Invoices',
+  'vin-manager':'VIN Manager','legacy-import':'Legacy Import','settings':'Settings'
+};
+
+function navigateTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'" + page + "'")) n.classList.add('active');
+  });
+  document.getElementById('page-title').textContent = pageTitles[page] || page;
+
+  if (page === 'dashboard') updateDashboard();
+  if (page === 'invoices') renderInvoices();
+  if (page === 'vin-manager') renderVins();
+  if (page === 'new-invoice') { resetInvoiceForm(); }
+}
+
+// ══════════════════════════════════════════
+//  INVOICE FORM
+// ══════════════════════════════════════════
+function recalcAmounts() {
+  const amount = parseFloat(document.getElementById('f-amount').value) || 0;
+  const qty = parseFloat(document.getElementById('f-quantity').value) || 1;
+  const total = amount * qty;
+  const salesTx = parseFloat((total / 101 * 1).toFixed(2));
+  const amtEx = parseFloat((total - salesTx).toFixed(2));
+  document.getElementById('f-amt-ex').value = amtEx.toLocaleString('en-PK');
+  document.getElementById('f-sales-tx').value = salesTx.toLocaleString('en-PK');
+  document.getElementById('f-total').value = total.toLocaleString('en-PK');
+}
+
+function recalcEdit() {
+  const amount = parseFloat(document.getElementById('e-amount').value) || 0;
+  const qty = parseFloat(document.getElementById('e-quantity').value) || 1;
+  const total = amount * qty;
+  const salesTx = parseFloat((total / 101 * 1).toFixed(2));
+  const amtEx = parseFloat((total - salesTx).toFixed(2));
+  document.getElementById('e-amt-ex').value = amtEx.toLocaleString('en-PK');
+  document.getElementById('e-sales-tx').value = salesTx.toLocaleString('en-PK');
+  document.getElementById('e-total').value = total.toLocaleString('en-PK');
+}
+
+function resetInvoiceForm() {
+  currentEditId = null;
+  document.getElementById('invoice-form-title').textContent = 'New Invoice';
+  ['f-ref','f-name','f-cnic','f-contact','f-address','f-vin','f-motor',
+   'f-colour','f-particular','f-amount','f-amt-ex','f-sales-tx','f-total',
+   'f-mode','f-bank','f-dealt-by'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('f-quantity').value = 1;
+  setDefaultDate();
+  setNextRef();
+  if (settings.dealtBy) document.getElementById('f-dealt-by').value = settings.dealtBy;
+  document.getElementById('btn-export-word').style.display = 'none';
+  document.getElementById('btn-export-pdf').style.display = 'none';
+}
+
+function getFormData() {
+  const amount = parseFloat(document.getElementById('f-amount').value) || 0;
+  const qty = parseFloat(document.getElementById('f-quantity').value) || 1;
+  const total = amount * qty;
+  const salesTx = parseFloat((total / 101).toFixed(2));
+  const amtEx = parseFloat((total - salesTx).toFixed(2));
+  return {
+    ref: document.getElementById('f-ref').value.trim(),
+    date: document.getElementById('f-date').value,
+    name: document.getElementById('f-name').value.trim(),
+    cnic: document.getElementById('f-cnic').value.trim(),
+    contact: document.getElementById('f-contact').value.trim(),
+    address: document.getElementById('f-address').value.trim(),
+    vin: document.getElementById('f-vin').value.trim().toUpperCase(),
+    motor: document.getElementById('f-motor').value.trim(),
+    colour: document.getElementById('f-colour').value.trim(),
+    particular: document.getElementById('f-particular').value.trim(),
+    quantity: qty,
+    amount: amount,
+    amtEx: amtEx,
+    salesTx: salesTx,
+    total: total,
+    mode: document.getElementById('f-mode').value.trim(),
+    bank: document.getElementById('f-bank').value.trim(),
+    dealtBy: document.getElementById('f-dealt-by').value.trim(),
+  };
+}
+
+function nextId() {
+  if (!invoices.length) return 1;
+  return Math.max(...invoices.map(i => i.id)) + 1;
+}
+
+function saveInvoice() {
+  const d = getFormData();
+  if (!d.ref) return toast('Please enter a Ref No.', 'error');
+  if (!d.name) return toast('Please enter customer name', 'error');
+  if (!d.vin) return toast('Please enter VIN', 'error');
+  if (!d.amount) return toast('Please enter amount', 'error');
+
+  const record = {
+    id: nextId(),
+    ...d,
+    timestamp: new Date().toISOString()
+  };
+  invoices.push(record);
+
+  // bump ref counter
+  const parts = d.ref.split('/');
+  if (parts.length === 2) {
+    settings.refYear = parts[0];
+    settings.refNext = (parseInt(parts[1]) || 0) + 1;
+  }
+  save();
+  markDirty(record.id);
+  toast('Invoice saved!', 'success');
+  document.getElementById('btn-export-word').style.display = '';
+  document.getElementById('btn-export-pdf').style.display = '';
+  updateDashboard();
+  currentEditId = record.id; // for export buttons
+  exportWordInv(record, true);
+}
+
+// ══════════════════════════════════════════
+//  INVOICES LIST
+// ══════════════════════════════════════════
+function getFiltered() {
+  const q = document.getElementById('search-q')?.value.toLowerCase() || '';
+  const from = document.getElementById('search-from')?.value || '';
+  const to = document.getElementById('search-to')?.value || '';
+  return invoices.filter(inv => {
+    const matchQ = !q || [inv.name, inv.vin, inv.ref, inv.particular, inv.cnic]
+      .some(v => (v||'').toLowerCase().includes(q));
+    const invDate = inv.date ? inv.date : '';
+    const matchFrom = !from || invDate >= from;
+    const matchTo = !to || invDate <= to;
+    return matchQ && matchFrom && matchTo;
+  }).sort((a,b) => b.id - a.id);
+}
+
+function renderInvoices() {
+  const filtered = getFiltered();
+  const total = filtered.length;
+  const pages = Math.ceil(total / PAGE_SIZE) || 1;
+  if (currentPage > pages) currentPage = 1;
+  const slice = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  const tbody = document.getElementById('invoices-tbody');
+  if (!slice.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices found</h3><p>Try adjusting your search filters</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = slice.map((inv, i) => `
+      <tr>
+        <td>${inv.id}</td>
+        <td><span class="text-mono fw-6">${inv.ref||'—'}</span></td>
+        <td>${formatDate(inv.date)}</td>
+        <td>${inv.name||'—'}</td>
+        <td><span class="text-mono text-sm">${inv.vin||'—'}</span></td>
+        <td>${inv.particular||'—'}</td>
+        <td class="fw-6">₨${fmtNum(inv.total||inv.amount)}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm btn-icon" onclick='openEdit(${inv.id})' title="Edit">✏️</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick='deleteInvoice(${inv.id})' title="Delete">🗑</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+  renderPagination(pages);
+}
+
+function renderPagination(pages) {
+  const p = document.getElementById('pagination');
+  if (pages <= 1) { p.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= pages; i++) {
+    html += `<button class="page-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  p.innerHTML = html;
+}
+
+function goPage(n) { currentPage = n; renderInvoices(); }
+
+function clearSearch() {
+  document.getElementById('search-q').value = '';
+  document.getElementById('search-from').value = '';
+  document.getElementById('search-to').value = '';
+  currentPage = 1;
+  renderInvoices();
+}
+
+function deleteInvoice(id) {
+  if (!confirm('Delete this invoice?')) return;
+  invoices = invoices.filter(i => i.id !== id);
+  markDeleted(id);
+  save(); renderInvoices(); updateDashboard();
+  toast('Invoice deleted');
+}
+
+// ══════════════════════════════════════════
+//  EDIT INVOICE
+// ══════════════════════════════════════════
+function openEdit(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  currentEditId = id;
+  document.getElementById('e-ref').value = inv.ref||'';
+  document.getElementById('e-date').value = inv.date||'';
+  document.getElementById('e-mode').value = inv.mode||'';
+  document.getElementById('e-name').value = inv.name||'';
+  document.getElementById('e-cnic').value = inv.cnic||'';
+  document.getElementById('e-contact').value = inv.contact||'';
+  document.getElementById('e-address').value = inv.address||'';
+  document.getElementById('e-vin').value = inv.vin||'';
+  document.getElementById('e-motor').value = inv.motor||'';
+  document.getElementById('e-colour').value = inv.colour||'';
+  document.getElementById('e-particular').value = inv.particular||'';
+  document.getElementById('e-quantity').value = inv.quantity||1;
+  document.getElementById('e-amount').value = inv.amount||'';
+  document.getElementById('e-bank').value = inv.bank||'';
+  document.getElementById('e-dealt-by').value = inv.dealtBy||'';
+  recalcEdit();
+  openModal('edit-modal');
+}
+
+function updateInvoice() {
+  const inv = invoices.find(i => i.id === currentEditId);
+  if (!inv) return;
+  const amount = parseFloat(document.getElementById('e-amount').value)||0;
+  const qty = parseFloat(document.getElementById('e-quantity').value)||1;
+  const total = amount * qty;
+  const salesTx = parseFloat((total/101).toFixed(2));
+  const amtEx = parseFloat((total-salesTx).toFixed(2));
+
+  inv.ref = document.getElementById('e-ref').value.trim();
+  inv.date = document.getElementById('e-date').value;
+  inv.mode = document.getElementById('e-mode').value.trim();
+  inv.name = document.getElementById('e-name').value.trim();
+  inv.cnic = document.getElementById('e-cnic').value.trim();
+  inv.contact = document.getElementById('e-contact').value.trim();
+  inv.address = document.getElementById('e-address').value.trim();
+  inv.vin = document.getElementById('e-vin').value.trim().toUpperCase();
+  inv.motor = document.getElementById('e-motor').value.trim();
+  inv.colour = document.getElementById('e-colour').value.trim();
+  inv.particular = document.getElementById('e-particular').value.trim();
+  inv.quantity = qty;
+  inv.amount = amount;
+  inv.amtEx = amtEx;
+  inv.salesTx = salesTx;
+  inv.total = total;
+  inv.bank = document.getElementById('e-bank').value.trim();
+  inv.dealtBy = document.getElementById('e-dealt-by').value.trim();
+
+  markDirty(inv.id);
+  save(); closeModal('edit-modal'); renderInvoices(); updateDashboard();
+  toast('Invoice updated!', 'success');
+}
+
+// ══════════════════════════════════════════
+//  VIN AUTOCOMPLETE
+// ══════════════════════════════════════════
+function getMatchingVins(query) {
+  const q = query.toUpperCase();
+  return vins.filter(v => v.vin.toUpperCase().includes(q) || (v.desc||'').toLowerCase().includes(query.toLowerCase()));
+}
+
+function onVinInput(input) {
+  const q = input.value;
+  const matches = getMatchingVins(q);
+  const dd = document.getElementById('vin-dropdown');
+  if (!matches.length && !q) { dd.classList.remove('open'); return; }
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.slice(0,10).map((v,i) =>
+    `<div class="vin-option" onmousedown="selectVin('${v.vin}','${v.desc||''}','${v.colour||''}')">
+      ${v.vin}
+      <div class="vin-label">${v.desc||''} ${v.colour ? '· '+v.colour : ''}</div>
+    </div>`).join('');
+  dd.classList.add('open');
+}
+
+function selectVin(vin, desc, colour) {
+  document.getElementById('f-vin').value = vin;
+  if (desc && !document.getElementById('f-particular').value) document.getElementById('f-particular').value = desc;
+  if (colour && !document.getElementById('f-colour').value) document.getElementById('f-colour').value = colour;
+  document.getElementById('vin-dropdown').classList.remove('open');
+}
+
+function closeVinDropdown() { setTimeout(()=>document.getElementById('vin-dropdown').classList.remove('open'), 200); }
+
+function onVinInputEdit(input) {
+  const q = input.value;
+  const matches = getMatchingVins(q);
+  const dd = document.getElementById('vin-dropdown-edit');
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.slice(0,10).map(v =>
+    `<div class="vin-option" onmousedown="selectVinEdit('${v.vin}','${v.colour||''}')">
+      ${v.vin}
+      <div class="vin-label">${v.desc||''} ${v.colour?'· '+v.colour:''}</div>
+    </div>`).join('');
+  dd.classList.add('open');
+}
+
+function selectVinEdit(vin, colour) {
+  document.getElementById('e-vin').value = vin;
+  if (colour) document.getElementById('e-colour').value = colour;
+  document.getElementById('vin-dropdown-edit').classList.remove('open');
+}
+
+function closeVinDropdownEdit() { setTimeout(()=>document.getElementById('vin-dropdown-edit').classList.remove('open'), 200); }
+
+// ══════════════════════════════════════════
+//  VIN MANAGER
+// ══════════════════════════════════════════
+function addVin() {
+  const vin = document.getElementById('vin-input').value.trim().toUpperCase();
+  const desc = document.getElementById('vin-desc').value.trim();
+  const colour = document.getElementById('vin-colour').value.trim();
+  if (!vin) return toast('Enter a VIN', 'error');
+  if (vins.find(v => v.vin === vin)) return toast('VIN already exists', 'error');
+  vins.push({ vin, desc, colour });
+  markVinsDirty();
+  save(); renderVins();
+  document.getElementById('vin-input').value = '';
+  document.getElementById('vin-desc').value = '';
+  document.getElementById('vin-colour').value = '';
+  toast('VIN added!', 'success');
+}
+
+function renderVins() {
+  const tbody = document.getElementById('vin-tbody');
+  document.getElementById('vin-count').textContent = vins.length + ' VINs';
+  if (!vins.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🚗</div><h3>No VINs registered</h3></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = vins.map((v,i) => `
+    <tr>
+      <td class="text-mono fw-6">${v.vin}</td>
+      <td>${v.desc||'—'}</td>
+      <td>${v.colour||'—'}</td>
+      <td>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openVinEdit(${i})">✏️</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteVin(${i})">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  document.getElementById('stat-vins').textContent = vins.length;
+}
+
+function deleteVin(i) {
+  if (!confirm('Remove this VIN from registry?')) return;
+  vins.splice(i,1); markVinsDirty(); save(); renderVins();
+  toast('VIN removed');
+}
+
+function openVinEdit(i) {
+  currentEditVinIdx = i;
+  const v = vins[i];
+  document.getElementById('ve-vin').value = v.vin;
+  document.getElementById('ve-desc').value = v.desc||'';
+  document.getElementById('ve-colour').value = v.colour||'';
+  openModal('vin-edit-modal');
+}
+
+function saveVinEdit() {
+  const v = vins[currentEditVinIdx];
+  const newVin = document.getElementById('ve-vin').value.trim().toUpperCase();
+  if (!newVin) return toast('VIN cannot be empty', 'error');
+  v.vin = newVin;
+  v.desc = document.getElementById('ve-desc').value.trim();
+  v.colour = document.getElementById('ve-colour').value.trim();
+  markVinsDirty(); save(); renderVins(); closeModal('vin-edit-modal');
+  toast('VIN updated!', 'success');
+}
+
+function importVinCSV(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(Boolean);
+    let added = 0;
+    lines.forEach(line => {
+      const parts = line.split(',');
+      const vin = (parts[0]||'').trim().toUpperCase();
+      if (!vin || vins.find(v => v.vin===vin)) return;
+      vins.push({ vin, desc: (parts[1]||'').trim(), colour: (parts[2]||'').trim() });
+      added++;
+    });
+    if (added > 0) markVinsDirty();
+    save(); renderVins();
+    toast(`${added} VINs imported`, 'success');
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ══════════════════════════════════════════
+//  LEGACY IMPORT
+// ══════════════════════════════════════════
+function loadLegacyFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('legacy-json').value = e.target.result;
+    previewLegacy();
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function importLegacy() {
+  let data;
+  try { data = JSON.parse(document.getElementById('legacy-json').value); }
+  catch(e) { return toast('Invalid JSON', 'error'); }
+  if (!Array.isArray(data)) return toast('JSON must be an array', 'error');
+
+  let imported = 0, skipped = 0;
+  data.forEach(rec => {
+    const amount = parseFloat(rec.amount)||0;
+    const total = parseFloat(rec.total)||amount;
+    const salesTx = parseFloat((total/101).toFixed(2));
+    const amtEx = parseFloat((total-salesTx).toFixed(2));
+    const newRec = {
+      id: nextId(),
+      ref: rec.invoice_number || rec.ref || '',
+      date: legacyDateToISO(rec.date),
+      name: rec.name || '',
+      cnic: rec.cnic || '',
+      contact: rec.contact || '',
+      address: rec.address || '',
+      vin: (rec.vin||'').toUpperCase(),
+      motor: rec.motor || '',
+      colour: rec.colour || '',
+      particular: rec.particulars || rec.particular || '',
+      quantity: rec.quantity || 1,
+      amount: amount,
+      amtEx: amtEx,
+      salesTx: salesTx,
+      total: total,
+      mode: rec.mode || '',
+      bank: rec.bank || '',
+      dealtBy: rec.dealt_by || '',
+      timestamp: rec.timestamp || new Date().toISOString(),
+      legacy: true
+    };
+    invoices.push(newRec);
+    markDirty(newRec.id);
+    imported++;
+  });
+  save(); updateDashboard(); renderInvoices();
+  toast(`${imported} records imported — click Sync to push to Sheets`, 'success');
+  document.getElementById('legacy-preview').innerHTML = `
+    <div class="card" style="background:var(--green-xlight)">
+      <div class="card-body">✅ Successfully imported <strong>${imported}</strong> records. Skipped: ${skipped}.</div>
+    </div>`;
+}
+
+function legacyDateToISO(dateStr) {
+  if (!dateStr) return '';
+  // Handle DD/MM/YYYY format
+  const parts = dateStr.split('/');
+  if (parts.length === 3 && parts[2].length === 4) {
+    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  }
+  // Already ISO
+  if (dateStr.includes('-')) return dateStr.split('T')[0];
+  return dateStr;
+}
+
+function previewLegacy() {
+  try {
+    const data = JSON.parse(document.getElementById('legacy-json').value);
+    if (!Array.isArray(data)) return;
+    document.getElementById('legacy-preview').innerHTML = `
+      <div class="text-sm text-muted mt-4">Found <strong>${data.length}</strong> records in JSON. Click Import to add them.</div>`;
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════
+function updateDashboard() {
+  const now = new Date();
+  const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const monthInvs = invoices.filter(i => (i.date||'').startsWith(thisMonth));
+  const monthRevenue = monthInvs.reduce((s,i)=>s+(i.amtEx||i.amount||0),0);
+
+  document.getElementById('stat-total').textContent = invoices.length;
+  document.getElementById('stat-month').textContent = monthInvs.length;
+  document.getElementById('stat-month-label').textContent = now.toLocaleString('default',{month:'long'});
+  document.getElementById('stat-revenue').textContent = '₨' + fmtNum(monthRevenue);
+  document.getElementById('stat-vins').textContent = vins.length;
+
+  const recent = [...invoices].sort((a,b)=>b.id-a.id).slice(0,6);
+  const tbody = document.getElementById('recent-tbody');
+  tbody.innerHTML = recent.map(inv => `
+    <tr>
+      <td class="text-mono fw-6">${inv.ref||'—'}</td>
+      <td>${formatDate(inv.date)}</td>
+      <td>${inv.name||'—'}</td>
+      <td class="text-mono text-sm">${inv.vin||'—'}</td>
+      <td class="fw-6">₨${fmtNum(inv.total||inv.amount)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick='openEdit(${inv.id})'>Edit</button></td>
+    </tr>`).join('') || '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices yet</h3></div></td></tr>';
+}
+
+// ══════════════════════════════════════════
+//  TEMPLATE SERVER
+// ══════════════════════════════════════════
+const IS_LOCAL_HOST = ['localhost', '127.0.0.1'].includes(location.hostname);
+const USE_NETLIFY_FUNCTIONS = location.protocol !== 'file:' && (!IS_LOCAL_HOST || location.port === '8888');
+const TEMPLATE_SERVER = 'http://localhost:3434';
+let templateServerAvailable = false;
+
+function templateEndpoint(action) {
+  return USE_NETLIFY_FUNCTIONS
+    ? `/.netlify/functions/template?action=${encodeURIComponent(action)}`
+    : `${TEMPLATE_SERVER}/${action}`;
+}
+
+// Check whether the local template server is running on startup and periodically
+async function checkTemplateServer() {
+  try {
+    const r = await fetch(templateEndpoint('ping'), { signal: AbortSignal.timeout(1500) });
+    const d = await r.json();
+    const ok = d.status === 'ok';
+    templateServerAvailable = ok;
+    updateServerStatus(ok, d.templateFound);
+  } catch {
+    templateServerAvailable = false;
+    updateServerStatus(false, false);
+  }
+}
+
+function updateServerStatus(running, templateFound) {
+  const el = document.getElementById('server-status');
+  if (!el) return;
+  const serviceName = USE_NETLIFY_FUNCTIONS ? 'Netlify template function' : 'Template server';
+  if (!running) {
+    el.innerHTML = `<span style="color:var(--amber)">⚠ ${serviceName} unavailable</span> — <a href="#" onclick="showServerHelp();return false" style="color:var(--green)">details</a>`;
+  } else if (!templateFound) {
+    el.innerHTML = `<span style="color:var(--amber)">⚠ Server running but template not found</span> — place <code>invoice.docx</code> in <code>templates/</code>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--green)">✓ ${serviceName} connected</span> — using your <code>invoice.docx</code> template`;
+  }
+}
+
+function showServerHelp() {
+  if (USE_NETLIFY_FUNCTIONS) {
+    alert('The Netlify template function is unavailable. Check your deploy logs and confirm templates/invoice.docx is included.');
+    return;
+  }
+  alert(
+    'To enable Word/PDF export with your template:\n\n' +
+    '1. Open a terminal in the project folder\n' +
+    '2. Run:  npm install\n' +
+    '3. Run:  npm start\n' +
+    '4. PDF export uses Microsoft Word on Windows or LibreOffice elsewhere.\n\n' +
+    'The server runs on port 3434. Leave it running while using the app.'
+  );
+}
+
+// Check on load and every 15 seconds
+checkTemplateServer();
+setInterval(checkTemplateServer, 15000);
+
+// ══════════════════════════════════════════
+//  EXPORT (Word / PDF)
+// ══════════════════════════════════════════
+
+// Fallback HTML-in-Word export (no template server needed)
+function buildInvoiceHTML(inv) {
+  const d = formatDate(inv.date);
+  return `
+    <html><head><style>
+      body{font-family:Arial,sans-serif;padding:40px;color:#000}
+      h2{text-align:center;margin-bottom:4px}
+      .sub{text-align:center;font-size:13px;margin-bottom:20px}
+      table{width:100%;border-collapse:collapse;margin-bottom:16px}
+      td,th{border:1px solid #888;padding:7px 10px;font-size:13px}
+      th{background:#f0f0f0;font-weight:600}
+      .total-row td{font-weight:700;background:#f9fdf9}
+    </style></head><body>
+    <h2>Metro Lyallpur EV</h2>
+    <div class="sub">Invoice / Sale Receipt</div>
+    <table>
+      <tr><th>Ref No.</th><td>${inv.ref||''}</td><th>Date</th><td>${d}</td></tr>
+      <tr><th>Customer Name</th><td>${inv.name||''}</td><th>CNIC</th><td>${inv.cnic||''}</td></tr>
+      <tr><th>Contact</th><td>${inv.contact||''}</td><th>Address</th><td>${inv.address||''}</td></tr>
+    </table>
+    <table>
+      <tr><th>VIN</th><td>${inv.vin||''}</td><th>Motor No.</th><td>${inv.motor||''}</td></tr>
+      <tr><th>Colour</th><td>${inv.colour||''}</td><th>Mode</th><td>${inv.mode||''}</td></tr>
+    </table>
+    <table>
+      <thead><tr><th>Particular</th><th>Qty</th><th>Amount</th></tr></thead>
+      <tbody>
+        <tr><td>${inv.particular||''}</td><td>${inv.quantity||1}</td><td>₨${fmtNum(inv.amount)}</td></tr>
+        <tr><td colspan="2">Amount excl. Sales Tax</td><td>₨${fmtNum(inv.amtEx||inv.amount)}</td></tr>
+        <tr><td colspan="2">Sales Tax (1%)</td><td>₨${fmtNum(inv.salesTx||0)}</td></tr>
+        <tr class="total-row"><td colspan="2">Total</td><td>₨${fmtNum(inv.total||inv.amount)}</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <tr><th>Bank</th><td>${inv.bank||''}</td><th>Dealt By</th><td>${inv.dealtBy||''}</td></tr>
+    </table>
+    <div style="margin-top:40px;font-size:11px;color:#999;text-align:center">
+      Generated by Metro Lyallpur EV Invoice Manager
+    </div></body></html>`;
+}
+
+// ── Word export ────────────────────────────────────────────────────────────────
+function exportWord() {
+  const inv = invoices.find(i => i.id === currentEditId);
+  if (!inv) return toast('Save invoice first', 'error');
+  exportWordInv(inv);
+}
+function exportWordById() {
+  const inv = invoices.find(i => i.id === currentEditId);
+  if (inv) exportWordInv(inv);
+}
+
+async function exportWordInv(inv, requireTemplate = false) {
+  if (templateServerAvailable) {
+    try {
+      toast('Generating Word from template…');
+      const r = await fetch(templateEndpoint('generate-word'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inv),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.error || r.statusText);
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Word file downloaded ✓', 'success');
+      return;
+    } catch (err) {
+      console.warn('Template server error, falling back to HTML export:', err.message);
+      if (requireTemplate || USE_NETLIFY_FUNCTIONS) {
+        toast('Invoice saved, but template generation failed — ' + err.message, 'error');
+        return;
+      }
+      toast('Template error — using basic export', 'error');
+    }
+  }
+  // Fallback: HTML-in-Word
+  const html = buildInvoiceHTML(inv);
+  const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Word file downloaded (basic format)');
+}
+
+// ── PDF export ─────────────────────────────────────────────────────────────────
+function exportPdf() {
+  const inv = invoices.find(i => i.id === currentEditId);
+  if (!inv) return toast('Save invoice first', 'error');
+  exportPdfInv(inv);
+}
+function exportPdfById() {
+  const inv = invoices.find(i => i.id === currentEditId);
+  if (inv) exportPdfInv(inv);
+}
+
+async function printTemplatePdf(inv) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) throw new Error('Allow pop-ups to print the template PDF');
+
+  const response = await fetch(templateEndpoint('generate-word'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(inv),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    printWindow.close();
+    throw new Error(error.error || response.statusText);
+  }
+  if (!window.docx?.renderAsync) {
+    printWindow.close();
+    throw new Error('DOCX preview library did not load');
+  }
+
+  printWindow.document.write('<!doctype html><html><head><title>Invoice PDF</title></head><body><main id="invoice-preview"></main></body></html>');
+  printWindow.document.close();
+  const content = await response.arrayBuffer();
+  await window.docx.renderAsync(content, printWindow.document.getElementById('invoice-preview'));
+  printWindow.document.title = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}`;
+  printWindow.focus();
+  printWindow.print();
+}
+
+async function exportPdfInv(inv) {
+  if (USE_NETLIFY_FUNCTIONS) {
+    try {
+      toast('Preparing template for PDF…');
+      await printTemplatePdf(inv);
+      toast('Choose Save as PDF in the print dialog', 'success');
+    } catch (error) {
+      toast('Template PDF preview failed — ' + error.message, 'error');
+    }
+    return;
+  }
+
+  if (templateServerAvailable || requireTemplate || USE_NETLIFY_FUNCTIONS) {
+    try {
+      toast('Generating PDF from template…');
+      const r = await fetch(templateEndpoint('generate-pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inv),
+        signal: AbortSignal.timeout(35000),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.error || r.statusText);
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('PDF downloaded ✓', 'success');
+      return;
+    } catch (err) {
+      console.warn('PDF via server failed, falling back to print:', err.message);
+      if (err.message.includes('LibreOffice')) {
+        toast('LibreOffice not installed — opening print dialog instead', 'error');
+      } else {
+        toast('PDF error — opening print dialog', 'error');
+      }
+    }
+  }
+  // Fallback: browser print dialog
+  const html = buildInvoiceHTML(inv);
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.onload = () => w.print();
+}
+
+// ══════════════════════════════════════════
+//  EXPORT CSV / JSON
+// ══════════════════════════════════════════
+function exportCSV() {
+  const filtered = getFiltered();
+  const headers = ['ID','Ref','Date','Name','CNIC','Contact','Address','VIN','Motor','Colour','Particular','Qty','Amount','AmtExTx','SalesTx','Total','Mode','Bank','DealtBy'];
+  const rows = filtered.map(i => [
+    i.id, i.ref, i.date, i.name, i.cnic, i.contact, i.address,
+    i.vin, i.motor, i.colour, i.particular, i.quantity, i.amount,
+    i.amtEx, i.salesTx, i.total, i.mode, i.bank, i.dealtBy
+  ].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`));
+  const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='invoices.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported');
+}
+
+function exportAllJSON() {
+  const blob = new Blob([JSON.stringify({invoices, vins}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href=url; a.download='metro_ev_backup.json'; a.click(); URL.revokeObjectURL(url);
+  toast('JSON exported');
+}
+
+// ══════════════════════════════════════════
+//  GOOGLE SHEETS SYNC
+// ══════════════════════════════════════════
+//
+// WHY form-encoded and not JSON:
+//   Google Apps Script web apps block CORS preflight requests that
+//   'Content-Type: application/json' triggers. Sending as
+//   application/x-www-form-urlencoded is a "simple request" — no preflight —
+//   so it reaches doPost. The JSON payload travels as a form field called "data".
+//   The Apps Script reads e.parameter.data and parses it there.
+//
+// WHY batching:
+//   Apps Script has a ~6 min execution limit and Sheets write quotas.
+//   Sending 200 records at once can time out. We chunk into groups of 50.
+
+const BATCH_SIZE = 50;
+
+async function syncToSheets(record) {
+  const url = settings.gsUrl;
+  if (!url) return;
+
+  // Single record or full sync
+  const records = record ? [record] : invoices;
+
+  try {
+    // Split into batches
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      await gsPost(url, { action: 'sync', records: batch });
+    }
+    updateGsDot(true);
+    if (!record) toast(`Synced ${records.length} records to Sheets ☁`, 'success');
+    else toast('Saved to Sheets ☁', 'success');
+  } catch (err) {
+    console.error('[syncToSheets]', err.message);
+    updateGsDot(false);
+    toast('Sync failed — ' + err.message, 'error');
+  }
+}
+
+// Send a payload to the Apps Script web app using form-encoding (no CORS preflight)
+function gsPost(url, payload) {
+  const body = new URLSearchParams({ data: JSON.stringify(payload) });
+  return fetch(url, {
+    method: 'POST',
+    body: body,
+    // No Content-Type header override — browser sets application/x-www-form-urlencoded
+  })
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  })
+  .then(d => {
+    if (d.status !== 'ok') throw new Error(d.message || 'Sheets returned error');
+    return d;
+  });
+}
+
+// Test uses a GET with ?action=ping — no CORS issue
+function testConnection() {
+  const url = document.getElementById('gs-url').value.trim();
+  if (!url) return toast('Enter the Apps Script URL first', 'error');
+  toast('Testing connection…');
+  fetch(url + '?action=ping', { method: 'GET' })
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then(d => {
+      if (d.status === 'ok') {
+        updateGsDot(true);
+        settings.gsUrl = url;
+        save();
+        toast('Connected! ✓', 'success');
+      } else {
+        throw new Error(d.message || 'Unexpected response');
+      }
+    })
+    .catch(err => {
+      updateGsDot(false);
+      toast('Connection failed — ' + err.message, 'error');
+    });
+}
+
+// Full re-sync of everything (called from Sync button in topbar)
+async function fullSync() {
+  const url = settings.gsUrl;
+  if (!url) return toast('No Sheets URL configured — go to Settings', 'error');
+  if (!invoices.length) return toast('No invoices to sync', '');
+  toast(`Syncing ${invoices.length} invoices…`);
+  await syncToSheets(null);
+  // Also sync VINs
+  try {
+    await gsPost(url, { action: 'syncVins', vins });
+  } catch(e) { /* non-fatal */ }
+}
+
+function updateGsDot(connected) {
+  const dot = document.getElementById('gs-dot');
+  const txt = document.getElementById('gs-status-text');
+  dot.className = 'gs-dot' + (connected ? ' connected' : '');
+  txt.textContent = connected ? 'Sheets connected' : 'Not connected';
+}
+
+// ══════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════
+function saveGsUrl() {
+  const url = document.getElementById('gs-url').value.trim();
+  settings.gsUrl = url;
+  save();
+  toast('URL saved!', 'success');
+}
+
+function saveSettings() {
+  settings.refYear = document.getElementById('s-ref-year').value.trim();
+  settings.refNext = parseInt(document.getElementById('s-ref-next').value)||1;
+  settings.dealtBy = document.getElementById('s-dealt-by').value.trim();
+  settings.templatePath = document.getElementById('s-template-path').value.trim();
+  if (document.getElementById('gs-url').value.trim()) settings.gsUrl = document.getElementById('gs-url').value.trim();
+  save();
+  toast('Settings saved!', 'success');
+}
+
+function clearAllData() {
+  if (!confirm('⚠️ This will delete ALL invoices and VINs. This cannot be undone. Are you sure?')) return;
+  invoices = []; vins = []; settings = {};
+  save(); updateDashboard(); renderInvoices(); renderVins();
+  toast('All data cleared');
+}
+
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open')); });
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target===m) m.classList.remove('open'); }));
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function fmtNum(n) {
+  if (n === undefined || n === null || n === '') return '0';
+  return parseFloat(n).toLocaleString('en-PK', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const parts = iso.split('-');
+  if (parts.length===3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return iso;
+}
+
+function toast(msg, type='') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type?' '+type:'');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ══════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

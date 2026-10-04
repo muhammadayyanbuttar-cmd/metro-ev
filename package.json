@@ -1,0 +1,11 @@
+{
+  "name": "metro-lyallpur-ev-invoice-manager",
+  "private": true,
+  "scripts": {
+    "start": "node template-server.js"
+  },
+  "dependencies": {
+    "docxtemplater": "^3.67.5",
+    "pizzip": "^3.2.0"
+  }
+}
