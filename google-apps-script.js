@@ -22,25 +22,11 @@ function doGet(e) {
   }
 
   if (action === 'getInvoices') {
-    const rows = getSheet(SHEET_NAME_INVOICES).getDataRange().getValues();
-    const headers = rows[0];
-    const records = rows.slice(1).map(r => {
-      const obj = {};
-      headers.forEach((h, i) => obj[h] = r[i]);
-      return obj;
-    });
-    return jsonResponse({ status: 'ok', records });
+    return jsonResponse({ status: 'ok', records: getSheetRecords(SHEET_NAME_INVOICES, INVOICE_HEADERS) });
   }
 
   if (action === 'getVins') {
-    const rows = getSheet(SHEET_NAME_VINS).getDataRange().getValues();
-    const headers = rows[0];
-    const records = rows.slice(1).map(r => {
-      const obj = {};
-      headers.forEach((h, i) => obj[h] = r[i]);
-      return obj;
-    });
-    return jsonResponse({ status: 'ok', records });
+    return jsonResponse({ status: 'ok', records: getSheetRecords(SHEET_NAME_VINS, VIN_HEADERS) });
   }
 
   return jsonResponse({ status: 'ok', message: 'Metro EV API ready' });
@@ -143,6 +129,25 @@ function getSheet(name) {
     sheet = ss.insertSheet(name);
   }
   return sheet;
+}
+
+function getSheetRecords(name, headers) {
+  const sheet = getSheet(name);
+  ensureHeaders(sheet, headers);
+  const rows = sheet.getDataRange().getValues();
+  const columns = rows[0];
+  const timeZone = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+
+  return rows.slice(1).map(row => {
+    const record = {};
+    columns.forEach((column, index) => {
+      const value = row[index];
+      record[column] = column === 'date' && value instanceof Date
+        ? Utilities.formatDate(value, timeZone, 'yyyy-MM-dd')
+        : value;
+    });
+    return record;
+  });
 }
 
 function ensureHeaders(sheet, headers) {

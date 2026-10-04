@@ -50,7 +50,9 @@ The Netlify site can also use the existing Google Sheets connection. Invoice rec
 6. In the app, go to **Settings → Google Sheets Connection**
 7. Paste the URL and click **Save**, then **Test**
 
-The app will now sync invoices to your Google Sheet automatically.
+The app loads existing invoices and VINs from Sheets on startup and when you test/save the connection. Pending local changes can be pushed with the Sync button.
+
+When updating `google-apps-script.js`, publish a new web-app version from **Deploy → Manage deployments → Edit → New version → Deploy**. This is required for the spreadsheet-timezone date formatting fix to take effect.
 
 ---
 

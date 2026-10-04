@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
 <style>
   :root {
@@ -777,6 +778,7 @@ function init() {
   setDefaultDate();
   setNextRef();
   updatePendingBadge();
+  if (settings.gsUrl) testConnection({ silent: true });
 }
 
 function loadFromStorage() {
@@ -797,7 +799,6 @@ function save() {
 function applySettings() {
   if (settings.gsUrl) {
     document.getElementById('gs-url').value = settings.gsUrl;
-    updateGsDot(true);
   }
   if (settings.refYear) document.getElementById('s-ref-year').value = settings.refYear;
   if (settings.dealtBy) document.getElementById('s-dealt-by').value = settings.dealtBy;
@@ -1447,7 +1448,7 @@ function exportWordById() {
 }
 
 async function exportWordInv(inv, requireTemplate = false) {
-  if (templateServerAvailable) {
+  if (templateServerAvailable || requireTemplate || USE_NETLIFY_FUNCTIONS) {
     try {
       toast('Generating Word from template…');
       const r = await fetch(templateEndpoint('generate-word'), {
@@ -1501,31 +1502,46 @@ function exportPdfById() {
 }
 
 async function printTemplatePdf(inv) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) throw new Error('Allow pop-ups to print the template PDF');
+  document.getElementById('invoice-pdf-preview')?.remove();
+  document.getElementById('invoice-pdf-print-styles')?.remove();
+  try {
+    const response = await fetch(templateEndpoint('generate-word'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(inv),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || response.statusText);
+    }
 
-  const response = await fetch(templateEndpoint('generate-word'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(inv),
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    printWindow.close();
-    throw new Error(error.error || response.statusText);
-  }
-  if (!window.docx?.renderAsync) {
-    printWindow.close();
-    throw new Error('DOCX preview library did not load');
-  }
+    if (!window.docx?.renderAsync) throw new Error('DOCX preview library did not load');
+    const overlay = document.createElement('div');
+    overlay.id = 'invoice-pdf-preview';
+    overlay.innerHTML = `<div class="invoice-pdf-toolbar"><strong>Invoice ${inv.ref || inv.id}</strong><div><button type="button" id="invoice-pdf-print">Print / Save as PDF</button><button type="button" id="invoice-pdf-close" aria-label="Close preview">Close</button></div></div><main id="invoice-preview"></main>`;
+    document.body.appendChild(overlay);
+    const printStyles = document.createElement('style');
+    printStyles.id = 'invoice-pdf-print-styles';
+    printStyles.textContent = '#invoice-pdf-preview{position:fixed;inset:0;z-index:10000;overflow:auto;background:#eef1ef;color:#17221c}#invoice-pdf-preview .invoice-pdf-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #d0ddd6}#invoice-pdf-preview .invoice-pdf-toolbar>div{display:flex;gap:8px}#invoice-pdf-preview button{padding:8px 12px;border:1px solid #cbd5cf;border-radius:6px;background:#fff;color:#17221c;font:inherit;cursor:pointer}#invoice-pdf-preview #invoice-pdf-print{background:#1a7a4a;border-color:#1a7a4a;color:#fff}#invoice-pdf-preview #invoice-preview{padding:20px 0}@media print{@page{size:A4;margin:0}body>*:not(#invoice-pdf-preview){display:none!important}#invoice-pdf-preview{position:static;overflow:visible;background:#fff}#invoice-pdf-preview .invoice-pdf-toolbar{display:none!important}#invoice-pdf-preview #invoice-preview{padding:0}.docx-wrapper{background:#fff!important;padding:0!important}.docx-wrapper>section.docx{margin:0!important;box-shadow:none!important}}';
+    document.head.appendChild(printStyles);
+    const preview = overlay.querySelector('#invoice-preview');
+    const content = await response.arrayBuffer();
+    await window.docx.renderAsync(content, preview, preview);
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (!preview.children.length) throw new Error('The invoice template rendered no visible content');
 
-  printWindow.document.write('<!doctype html><html><head><title>Invoice PDF</title></head><body><main id="invoice-preview"></main></body></html>');
-  printWindow.document.close();
-  const content = await response.arrayBuffer();
-  await window.docx.renderAsync(content, printWindow.document.getElementById('invoice-preview'));
-  printWindow.document.title = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}`;
-  printWindow.focus();
-  printWindow.print();
+    overlay.querySelector('#invoice-pdf-print').addEventListener('click', () => window.print());
+    overlay.querySelector('#invoice-pdf-close').addEventListener('click', () => {
+      overlay.remove();
+      printStyles.remove();
+    });
+    window.print();
+  } catch (error) {
+    document.getElementById('invoice-pdf-preview')?.remove();
+    document.getElementById('invoice-pdf-print-styles')?.remove();
+    throw error;
+  }
 }
 
 async function exportPdfInv(inv) {
@@ -1540,7 +1556,7 @@ async function exportPdfInv(inv) {
     return;
   }
 
-  if (templateServerAvailable || requireTemplate || USE_NETLIFY_FUNCTIONS) {
+  if (templateServerAvailable) {
     try {
       toast('Generating PDF from template…');
       const r = await fetch(templateEndpoint('generate-pdf'), {
@@ -1663,44 +1679,118 @@ function gsPost(url, payload) {
   });
 }
 
-// Test uses a GET with ?action=ping — no CORS issue
-function testConnection() {
-  const url = document.getElementById('gs-url').value.trim();
-  if (!url) return toast('Enter the Apps Script URL first', 'error');
-  toast('Testing connection…');
-  fetch(url + '?action=ping', { method: 'GET' })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    })
-    .then(d => {
-      if (d.status === 'ok') {
-        updateGsDot(true);
-        settings.gsUrl = url;
-        save();
-        toast('Connected! ✓', 'success');
-      } else {
-        throw new Error(d.message || 'Unexpected response');
-      }
-    })
-    .catch(err => {
-      updateGsDot(false);
-      toast('Connection failed — ' + err.message, 'error');
-    });
+async function getSheetRecords(url, action) {
+  const endpoint = new URL(url);
+  endpoint.searchParams.set('action', action);
+  const response = await fetch(endpoint);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.status !== 'ok') throw new Error(result.message || `Could not fetch ${action}`);
+  return Array.isArray(result.records) ? result.records : [];
 }
 
-// Full re-sync of everything (called from Sync button in topbar)
-async function fullSync() {
+async function syncFromSheets({ silent = false } = {}) {
+  const url = settings.gsUrl;
+  if (!url) return;
+
+  try {
+    const [remoteInvoices, remoteVins] = await Promise.all([
+      getSheetRecords(url, 'getInvoices'),
+      getSheetRecords(url, 'getVins'),
+    ]);
+    const pendingUpdates = new Set([...dirtyInvoices].map(String));
+    const pendingDeletes = new Set([...deletedInvoices].map(String));
+    const mergedInvoices = new Map();
+
+    remoteInvoices.forEach(record => {
+      const key = String(record.id ?? '');
+      if (!key || pendingDeletes.has(key)) return;
+      const numericId = Number(record.id);
+      const date = String(record.date || '');
+      mergedInvoices.set(key, {
+        ...record,
+        id: Number.isFinite(numericId) ? numericId : record.id,
+        date: /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10) : legacyDateToISO(date),
+      });
+    });
+
+    invoices.forEach(record => {
+      const key = String(record.id);
+      if (!mergedInvoices.has(key) || pendingUpdates.has(key)) mergedInvoices.set(key, record);
+    });
+    pendingDeletes.forEach(id => mergedInvoices.delete(id));
+    invoices = [...mergedInvoices.values()].sort((a, b) => Number(b.id) - Number(a.id));
+
+    if (!vinsChanged && remoteVins.length) {
+      vins = remoteVins.filter(record => record.vin).map(record => ({
+        vin: String(record.vin).toUpperCase(),
+        desc: record.desc || '',
+        colour: record.colour || '',
+      }));
+    }
+
+    save();
+    updateDashboard();
+    renderInvoices();
+    renderVins();
+    updateGsDot(true);
+    if (!silent) toast(`Loaded ${invoices.length} invoices and ${vins.length} VINs from Sheets`, 'success');
+  } catch (error) {
+    updateGsDot(false);
+    if (!silent) toast('Sheets fetch failed — ' + error.message, 'error');
+    throw error;
+  }
+}
+
+// Test uses a GET with ?action=ping — no CORS issue
+async function testConnection({ silent = false } = {}) {
+  const url = document.getElementById('gs-url').value.trim();
+  if (!url) return silent ? undefined : toast('Enter the Apps Script URL first', 'error');
+  if (!silent) toast('Connecting to Sheets and loading records…');
+
+  try {
+    const endpoint = new URL(url);
+    endpoint.searchParams.set('action', 'ping');
+    const response = await fetch(endpoint);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    if (result.status !== 'ok') throw new Error(result.message || 'Unexpected response');
+    settings.gsUrl = url;
+    save();
+    await syncFromSheets({ silent: true });
+    if (!silent) toast(`Connected; loaded ${invoices.length} invoices and ${vins.length} VINs`, 'success');
+  } catch (error) {
+    updateGsDot(false);
+    console.error('[testConnection]', error.message);
+    if (!silent) toast('Connection or fetch failed — ' + error.message, 'error');
+  }
+}
+
+async function flushDirty() {
   const url = settings.gsUrl;
   if (!url) return toast('No Sheets URL configured — go to Settings', 'error');
-  if (!invoices.length) return toast('No invoices to sync', '');
-  toast(`Syncing ${invoices.length} invoices…`);
-  await syncToSheets(null);
-  // Also sync VINs
+  const pendingCount = dirtyInvoices.size + deletedInvoices.size + (vinsChanged ? 1 : 0);
+  if (!pendingCount) return syncFromSheets();
+
   try {
-    await gsPost(url, { action: 'syncVins', vins });
-  } catch(e) { /* non-fatal */ }
+    const records = invoices.filter(record => dirtyInvoices.has(record.id) || dirtyInvoices.has(String(record.id)));
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      await gsPost(url, { action: 'sync', records: records.slice(i, i + BATCH_SIZE) });
+    }
+    for (const id of deletedInvoices) {
+      await gsPost(url, { action: 'deleteInvoice', id });
+    }
+    if (vinsChanged) await gsPost(url, { action: 'syncVins', vins });
+    clearDirty();
+    updateGsDot(true);
+    toast(`Synced ${pendingCount} changes to Sheets`, 'success');
+  } catch (error) {
+    updateGsDot(false);
+    toast('Sync failed — ' + error.message, 'error');
+  }
 }
+
+async function fullSync() { return flushDirty(); }
 
 function updateGsDot(connected) {
   const dot = document.getElementById('gs-dot');
@@ -1716,7 +1806,7 @@ function saveGsUrl() {
   const url = document.getElementById('gs-url').value.trim();
   settings.gsUrl = url;
   save();
-  toast('URL saved!', 'success');
+  testConnection();
 }
 
 function saveSettings() {
