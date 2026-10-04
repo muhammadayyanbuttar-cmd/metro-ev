@@ -305,7 +305,13 @@
               </div>
               <div class="form-group">
                 <label class="form-label">Mode of Payment</label>
-                <input class="form-input" id="f-mode" placeholder="Cash / Bank Transfer">
+                <select class="form-select" id="f-mode">
+                  <option value="">Select payment method</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             </div>
           </div>
@@ -600,7 +606,13 @@
         </div>
         <div class="form-group">
           <label class="form-label">Mode</label>
-          <input class="form-input" id="e-mode">
+          <select class="form-select" id="e-mode">
+            <option value="">Select payment method</option>
+            <option value="Cash">Cash</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
       </div>
       <div class="form-grid form-grid-2 mb-4">
@@ -1032,7 +1044,15 @@ function openEdit(id) {
   currentEditId = id;
   document.getElementById('e-ref').value = inv.ref||'';
   document.getElementById('e-date').value = inv.date||'';
-  document.getElementById('e-mode').value = inv.mode||'';
+  const modeSelect = document.getElementById('e-mode');
+  const savedMode = inv.mode || '';
+  if (savedMode && !Array.from(modeSelect.options).some(option => option.value === savedMode)) {
+    const option = document.createElement('option');
+    option.value = savedMode;
+    option.textContent = savedMode;
+    modeSelect.append(option);
+  }
+  modeSelect.value = savedMode;
   document.getElementById('e-name').value = inv.name||'';
   document.getElementById('e-cnic').value = inv.cnic||'';
   document.getElementById('e-contact').value = inv.contact||'';
