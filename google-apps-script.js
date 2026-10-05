@@ -35,7 +35,11 @@ function doGet(e) {
 // ─── POST handler (sync / upsert) ────────────────────────────────────────────
 function doPost(e) {
   try {
-    const body = JSON.parse(e.postData.contents);
+    // The browser sends form-encoded data to avoid a CORS preflight.
+    // Keep accepting raw JSON as well for callers that post JSON directly.
+    const body = e.parameter && e.parameter.data
+      ? JSON.parse(e.parameter.data)
+      : JSON.parse(e.postData.contents);
     const action = body.action || 'sync';
 
     if (action === 'sync' || action === 'upsert') {
