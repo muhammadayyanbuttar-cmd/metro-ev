@@ -9,29 +9,32 @@ A complete invoice management web app with Google Sheets cloud backup.
 ```
 metro-ev-invoice/
 ├── index.html              ← Main app (open this in browser)
+├── invoice-template-data.js ← Embedded invoice template data
+├── Logo.png                ← App logo and startup splash image
 ├── google-apps-script.js   ← Backend script for Google Sheets
 ├── README.md               ← This file
-├── netlify.toml            ← Netlify site and function configuration
-├── netlify/functions/      ← Serverless invoice template endpoint
-└── templates/              ← Place your .docx invoice template here
-    └── invoice.docx        ← (add your template with placeholders)
+├── netlify.toml            ← Static Netlify site configuration
+├── scripts/                ← Template embedding utility
+├── templates/
+│   └── invoice.docx        ← Source Word template
+└── vendor/                 ← Browser DOCX generation libraries
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-1. Run `npm install`, then `npm start` in the project folder to start the invoice template server
-2. Open `index.html` in a modern browser (Chrome, Edge, Firefox)
-3. Data is saved locally in your browser's localStorage; each saved invoice downloads a Word document generated from `templates/invoice.docx`
+1. Open `index.html` in a modern browser (Chrome, Edge, Firefox). No npm install, server startup, or activation is required.
+2. The DOCX template and rendering libraries are bundled with the app; Word export and PDF preview use the same template directly in the browser.
+3. Data is saved locally in your browser's localStorage.
 4. Optionally connect Google Sheets for cloud backup (see below)
 
 ## Deploy to Netlify
 
 1. Push the project folder to a Git repository and import it in Netlify, or run `npx netlify deploy` from this folder.
 2. Use the repository root as the base and publish directory. Leave the build command empty.
-3. Netlify reads `netlify.toml`, deploys the template function, and includes `templates/invoice.docx` with it.
-4. Word export uses the template function. PDF export renders that same DOCX in the browser and opens the print dialog; choose **Save as PDF**.
+3. Netlify serves the app and its bundled static assets; there is no template function to deploy.
+4. Word export renders the embedded DOCX in the browser. PDF export renders the same DOCX in the browser and opens the print dialog; choose **Save as PDF**.
 
 The Netlify site can also use the existing Google Sheets connection. Invoice records remain in each browser's local storage unless Sheets is configured.
 
@@ -48,20 +51,21 @@ The Netlify site can also use the existing Google Sheets connection. Invoice rec
    - Who has access: **Anyone**
 5. Click **Deploy**, copy the **Web App URL**
 6. In the app, go to **Settings → Google Sheets Connection**
-7. The shared Web App URL is preconfigured for new browsers. Click **Save**, then **Test** to verify it.
+7. The app uses the endpoint configured in `SHEETS_WEB_APP_URL` in `index.html`. Click **Test** to verify the connection.
 
-The app loads existing invoices and VINs from Sheets on startup and when you test/save the connection. Pending local changes can be pushed with the Sync button.
+The app loads existing invoices and VINs from Sheets on startup and when you test the connection. Pending local changes can be pushed with the Sync button.
 
-The shared URL is configured by `DEFAULT_GS_URL` in `index.html`, so it is available even when the app is opened in a different browser. If the Apps Script deployment URL changes, update that value and redeploy the app. A URL entered in Settings overrides the shared default only in that browser.
+The Sheets URL is fixed in the app and cannot be changed through Settings or browser-local settings. If the Apps Script deployment URL changes, update `SHEETS_WEB_APP_URL` and redeploy the app. This is a UI-level restriction only: the URL is visible in the page source, and static client-side code cannot enforce access control or prevent a technically capable user from modifying their local page. Do not treat the fixed URL as a password or security boundary.
 
 When updating `google-apps-script.js`, publish a new web-app version from **Deploy → Manage deployments → Edit → New version → Deploy**. This is required for the spreadsheet-timezone date formatting fix to take effect.
+
+`Logo.png` is used for the browser favicon, startup splash screen, and sidebar logo. Keep it alongside `index.html` when deploying.
 
 ---
 
 ## 📋 Invoice Template (Word/PDF Export)
 
-The local template server reads `templates/invoice.docx` whenever an invoice is saved. Keep `npm start` running while using the app. PDF export converts the same rendered DOCX using Microsoft Word on Windows or LibreOffice on other platforms.  
-The template uses these placeholder tags which are replaced at export time:
+The app includes the `templates/invoice.docx` content in `invoice-template-data.js`, so Word export and PDF preview work without a separate server. If you edit the Word template, rebuild the embedded data with `node scripts/embed-template.js` and deploy both files. The template uses these placeholder tags which are replaced at export time:
 
 | Placeholder | Description |
 |---|---|

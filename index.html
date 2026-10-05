@@ -4,11 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Metro Lyallpur EV — Invoice Manager</title>
+<link rel="icon" type="image/png" href="Logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
+<script src="vendor/pizzip.min.js"></script>
+<script src="vendor/docxtemplater.min.js"></script>
+<script src="invoice-template-data.js"></script>
 <style>
   :root {
     --green: #1a7a4a;
@@ -38,9 +42,13 @@
   .sidebar { width: 220px; background: var(--ink); flex-shrink: 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
   .sidebar-brand { padding: 20px 16px 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
   .sidebar-brand .logo-badge { display: inline-flex; align-items: center; gap: 8px; }
-  .sidebar-brand .logo-icon { width: 28px; height: 28px; background: var(--green-mid); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .sidebar-brand .logo-icon { width: 36px; height: 36px; background: #fff; border-radius: 6px; object-fit: contain; flex-shrink: 0; }
   .sidebar-brand .brand-name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
   .sidebar-brand .brand-sub { font-size: 10px; color: rgba(255,255,255,.5); letter-spacing: .3px; }
+  .app-splash { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #fff; color: var(--ink); transition: opacity .35s ease, visibility .35s ease; }
+  .app-splash img { width: min(40vw, 180px); height: min(40vw, 180px); object-fit: contain; }
+  .app-splash strong { font-size: 18px; font-weight: 600; }
+  .app-splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
   .sidebar-nav { padding: 12px 8px; flex: 1; }
   .nav-section { font-size: 10px; font-weight: 600; color: rgba(255,255,255,.35); letter-spacing: .8px; padding: 8px 8px 4px; text-transform: uppercase; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; color: rgba(255,255,255,.65); font-size: 13px; font-weight: 450; transition: all .15s; margin-bottom: 1px; }
@@ -52,11 +60,11 @@
   .gs-dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; flex-shrink: 0; }
   .gs-dot.connected { background: #4ade80; }
 
-  .main { flex: 1; overflow-x: hidden; }
+  .main { flex: 1; min-width: 0; overflow-x: hidden; }
   .topbar { background: var(--white); border-bottom: 1px solid var(--border-light); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-  .topbar-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+  .topbar-title { min-width: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
   .topbar-actions { display: flex; align-items: center; gap: 10px; }
-  .page { padding: 24px 28px; display: none; }
+  .page { min-width: 0; padding: 24px 28px; display: none; }
   .page.active { display: block; }
 
   /* ── BUTTONS ── */
@@ -101,7 +109,7 @@
   .vin-option .vin-label { font-size: 10px; font-family: inherit; color: var(--ink-soft); margin-top: 1px; }
 
   /* ── TABLE ── */
-  .table-wrap { overflow-x: auto; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; }
   th { background: var(--green-xlight); color: var(--green); font-size: 11px; font-weight: 600; text-align: left; padding: 9px 14px; border-bottom: 2px solid var(--border-light); white-space: nowrap; }
   td { padding: 11px 14px; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--ink-mid); vertical-align: middle; }
@@ -178,23 +186,70 @@
   .vin-tag button { background: none; border: none; cursor: pointer; color: var(--green); font-size: 14px; line-height: 1; padding: 0 0 0 2px; }
 
   @media (max-width: 768px) {
-    .sidebar { width: 56px; }
-    .sidebar-brand .brand-name, .sidebar-brand .brand-sub, .nav-item span, .nav-section { display: none; }
-    .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
-    .stats-row { grid-template-columns: 1fr 1fr; }
-    .page { padding: 16px; }
-    .topbar { padding: 0 16px; }
+    .app-shell { display: block; min-height: 100vh; min-height: 100dvh; padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+    .sidebar { position: fixed; inset: auto 0 0; z-index: 100; width: 100%; height: auto; min-height: calc(62px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid rgba(255,255,255,.1); }
+    .sidebar-brand, .sidebar-footer, .nav-section { display: none; }
+    .sidebar-nav { display: flex; flex: 0 0 auto; justify-content: space-around; gap: 2px; overflow-x: auto; padding: 4px 4px 0; scrollbar-width: none; }
+    .sidebar-nav::-webkit-scrollbar { display: none; }
+    .nav-item { flex: 1 0 0; min-width: 48px; min-height: 54px; flex-direction: column; justify-content: center; gap: 2px; margin: 0; padding: 5px 2px; font-size: 10px; line-height: 1.15; text-align: center; }
+    .nav-item .nav-icon { width: auto; font-size: 17px; line-height: 1.2; }
+    .nav-item span:not(.nav-icon) { display: block; }
+    .main { width: 100%; overflow-x: clip; }
+    .topbar { min-height: 56px; height: auto; gap: 8px; padding: 8px 12px; }
+    .topbar-title { font-size: 15px; }
+    .topbar-actions { gap: 6px; }
+    .topbar-actions .btn { padding: 7px 9px; font-size: 11px; white-space: nowrap; }
+    .page { padding: 14px 12px 18px; }
+    .form-grid-2, .form-grid-3 { grid-template-columns: minmax(0, 1fr); }
+    .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .stat-card { min-width: 0; padding: 12px; }
+    .stat-value { font-size: 20px; overflow-wrap: anywhere; }
+    .card-header { gap: 8px; padding: 13px 14px; }
+    .card-body { padding: 14px; }
+    .search-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .search-input-wrap { grid-column: 1 / -1; min-width: 0; }
+    .search-bar > .form-input { width: 100% !important; min-width: 0; }
+    .search-bar > .btn { justify-content: center; }
+    .pagination { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+    .page-btn { min-width: 34px; min-height: 36px; }
+    .flex { min-width: 0; }
+    .page .card-body > .flex.gap-2 { flex-wrap: wrap; }
+    .page .card-body > .flex.gap-2 > .btn { flex: 1 1 130px; justify-content: center; }
+    .form-input, .form-select, .form-textarea { min-height: 44px; font-size: 16px; }
+    .modal-overlay { align-items: flex-end; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+    .modal { max-height: 94vh; max-height: 94dvh; border-radius: 12px; }
+    .modal-header { padding: 14px 16px 12px; }
+    .modal-body { padding: 14px 16px; }
+    .modal-footer { flex-wrap: wrap; padding: 12px 16px; }
+    .modal-footer > .btn { flex: 1 1 40%; justify-content: center; min-height: 40px; }
+    #toast-container { right: 10px; bottom: calc(72px + env(safe-area-inset-bottom)); left: 10px; }
+    .toast { width: 100%; min-width: 0; }
+  }
+
+  @media (max-width: 380px) {
+    .topbar-actions .btn { padding: 7px; font-size: 10px; }
+    .page { padding-right: 9px; padding-left: 9px; }
+    .card-header { padding-right: 11px; padding-left: 11px; }
+    .card-body { padding: 11px; }
+    .stat-card { padding: 10px; }
+    .stat-value { font-size: 18px; }
+    .nav-item { min-width: 45px; font-size: 9px; }
   }
 </style>
 </head>
 <body>
+
+<div class="app-splash" id="app-splash" role="status" aria-label="Loading Metro Lyallpur EV">
+  <img src="Logo.png" alt="Metro Lyallpur EV logo">
+  <strong>Metro Lyallpur EV</strong>
+</div>
 
 <div class="app-shell">
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="logo-badge">
-        <div class="logo-icon">⚡</div>
+        <img class="logo-icon" src="Logo.png" alt="Metro Lyallpur EV logo">
         <div>
           <div class="brand-name">Metro Lyallpur EV</div>
           <div class="brand-sub">Invoice Manager</div>
@@ -513,8 +568,8 @@
         <div class="card-body" style="padding:12px 18px">
           <div class="flex items-center gap-2" style="font-size:13px">
             <span>🖨</span>
-            <span id="server-status" style="color:var(--ink-soft)">Checking invoice template service…</span>
-            <button class="btn btn-ghost btn-sm" onclick="checkTemplateServer()" style="margin-left:auto">↻ Recheck</button>
+            <span style="color:var(--green)">✓ Invoice template ready</span>
+            <span style="margin-left:auto;color:var(--ink-soft)">Built into this app</span>
           </div>
         </div>
       </div>
@@ -522,15 +577,14 @@
       <div class="card mb-4">
         <div class="card-header"><span class="card-title">Google Sheets Connection</span></div>
         <div class="card-body">
-          <p class="text-muted text-sm mb-4">Connect to Google Sheets for cloud storage. Paste your Sheets web app URL below (deploy your Apps Script as a web app first).</p>
+          <p class="text-muted text-sm mb-4">Connect to the app’s configured Google Sheets endpoint. The endpoint is fixed and managed with the app deployment.</p>
           <div class="form-group mb-3">
-            <label class="form-label">Apps Script Web App URL</label>
+            <label class="form-label">Connected Apps Script Web App</label>
             <div class="setup-field">
-              <input class="form-input" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" type="url">
-              <button class="btn btn-primary" onclick="saveGsUrl()">Save</button>
+              <input class="form-input" id="gs-url" type="url" readonly aria-readonly="true">
               <button class="btn btn-outline" onclick="testConnection()">Test</button>
             </div>
-            <span class="form-hint">The shared Sheets URL is preconfigured for new browsers. You can enter a different URL to override it in this browser.</span>
+            <span class="form-hint">This Sheets connection is fixed for this app and cannot be changed in Settings.</span>
           </div>
           <div class="card" style="background:var(--green-xlight);border-color:var(--border)">
             <div class="card-body">
@@ -540,7 +594,7 @@
                 <li>Paste the code from <code style="background:#fff;padding:2px 6px;border-radius:4px;font-size:11px">google-apps-script.js</code> (included in this project folder)</li>
                 <li>Click <strong>Deploy → New deployment</strong> → Web App</li>
                 <li>Set "Execute as: Me" and "Who has access: Anyone"</li>
-                <li>Copy the Web App URL and paste it above</li>
+                <li>Set the deployed Web App URL in <code>SHEETS_WEB_APP_URL</code> in <code>index.html</code>, then redeploy the app if the URL changes</li>
               </ol>
             </div>
           </div>
@@ -562,11 +616,6 @@
             <div class="form-group">
               <label class="form-label">Default Dealt By</label>
               <input class="form-input" id="s-dealt-by" placeholder="Sales rep name">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Template Folder Path</label>
-              <input class="form-input" id="s-template-path" placeholder="./templates/">
-              <span class="form-hint">Place invoice.docx template in this folder</span>
             </div>
           </div>
           <button class="btn btn-primary mt-4" onclick="saveSettings()">Save Settings</button>
@@ -730,7 +779,7 @@
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
-const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbxq8u6ZoEPIqQhxJwDiEcryb1BtqvQrzdkvLONZ5MS0foMRWIIhEU7NmUqjWD7xx_cP/exec';
+const SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxq8u6ZoEPIqQhxJwDiEcryb1BtqvQrzdkvLONZ5MS0foMRWIIhEU7NmUqjWD7xx_cP/exec';
 let invoices = [];
 let vins = [];
 let settings = {};
@@ -791,7 +840,7 @@ function init() {
   setDefaultDate();
   setNextRef();
   updatePendingBadge();
-  if (settings.gsUrl) testConnection({ silent: true });
+  testConnection({ silent: true });
 }
 
 function loadFromStorage() {
@@ -800,7 +849,8 @@ function loadFromStorage() {
     vins     = JSON.parse(localStorage.getItem('mlev_vins')     || '[]');
     settings = JSON.parse(localStorage.getItem('mlev_settings') || '{}');
   } catch(e) { invoices = []; vins = []; settings = {}; }
-  if (!settings.gsUrl) settings.gsUrl = DEFAULT_GS_URL;
+  delete settings.gsUrl;
+  delete settings.templatePath;
   loadDirty();
 }
 
@@ -811,12 +861,9 @@ function save() {
 }
 
 function applySettings() {
-  if (settings.gsUrl) {
-    document.getElementById('gs-url').value = settings.gsUrl;
-  }
+  document.getElementById('gs-url').value = SHEETS_WEB_APP_URL;
   if (settings.refYear) document.getElementById('s-ref-year').value = settings.refYear;
   if (settings.dealtBy) document.getElementById('s-dealt-by').value = settings.dealtBy;
-  if (settings.templatePath) document.getElementById('s-template-path').value = settings.templatePath;
 }
 
 function setDefaultDate() {
@@ -849,6 +896,7 @@ function navigateTo(page) {
     if (n.getAttribute('onclick')?.includes("'" + page + "'")) n.classList.add('active');
   });
   document.getElementById('page-title').textContent = pageTitles[page] || page;
+  window.scrollTo(0, 0);
 
   if (page === 'dashboard') updateDashboard();
   if (page === 'invoices') renderInvoices();
@@ -958,7 +1006,7 @@ function saveInvoice() {
   document.getElementById('btn-export-pdf').style.display = '';
   updateDashboard();
   currentEditId = record.id; // for export buttons
-  exportWordInv(record, true);
+  exportWordInv(record);
 }
 
 // ══════════════════════════════════════════
@@ -1354,108 +1402,56 @@ function updateDashboard() {
 }
 
 // ══════════════════════════════════════════
-//  TEMPLATE SERVER
-// ══════════════════════════════════════════
-const IS_LOCAL_HOST = ['localhost', '127.0.0.1'].includes(location.hostname);
-const USE_NETLIFY_FUNCTIONS = location.protocol !== 'file:' && (!IS_LOCAL_HOST || location.port === '8888');
-const TEMPLATE_SERVER = 'http://localhost:3434';
-let templateServerAvailable = false;
-
-function templateEndpoint(action) {
-  return USE_NETLIFY_FUNCTIONS
-    ? `/.netlify/functions/template?action=${encodeURIComponent(action)}`
-    : `${TEMPLATE_SERVER}/${action}`;
-}
-
-// Check whether the local template server is running on startup and periodically
-async function checkTemplateServer() {
-  try {
-    const r = await fetch(templateEndpoint('ping'), { signal: AbortSignal.timeout(1500) });
-    const d = await r.json();
-    const ok = d.status === 'ok';
-    templateServerAvailable = ok;
-    updateServerStatus(ok, d.templateFound);
-  } catch {
-    templateServerAvailable = false;
-    updateServerStatus(false, false);
-  }
-}
-
-function updateServerStatus(running, templateFound) {
-  const el = document.getElementById('server-status');
-  if (!el) return;
-  const serviceName = USE_NETLIFY_FUNCTIONS ? 'Netlify template function' : 'Template server';
-  if (!running) {
-    el.innerHTML = `<span style="color:var(--amber)">⚠ ${serviceName} unavailable</span> — <a href="#" onclick="showServerHelp();return false" style="color:var(--green)">details</a>`;
-  } else if (!templateFound) {
-    el.innerHTML = `<span style="color:var(--amber)">⚠ Server running but template not found</span> — place <code>invoice.docx</code> in <code>templates/</code>`;
-  } else {
-    el.innerHTML = `<span style="color:var(--green)">✓ ${serviceName} connected</span> — using your <code>invoice.docx</code> template`;
-  }
-}
-
-function showServerHelp() {
-  if (USE_NETLIFY_FUNCTIONS) {
-    alert('The Netlify template function is unavailable. Check your deploy logs and confirm templates/invoice.docx is included.');
-    return;
-  }
-  alert(
-    'To enable Word/PDF export with your template:\n\n' +
-    '1. Open a terminal in the project folder\n' +
-    '2. Run:  npm install\n' +
-    '3. Run:  npm start\n' +
-    '4. PDF export uses Microsoft Word on Windows or LibreOffice elsewhere.\n\n' +
-    'The server runs on port 3434. Leave it running while using the app.'
-  );
-}
-
-// Check on load and every 15 seconds
-checkTemplateServer();
-setInterval(checkTemplateServer, 15000);
-
-// ══════════════════════════════════════════
 //  EXPORT (Word / PDF)
 // ══════════════════════════════════════════
 
-// Fallback HTML-in-Word export (no template server needed)
-function buildInvoiceHTML(inv) {
-  const d = formatDate(inv.date);
-  return `
-    <html><head><style>
-      body{font-family:Arial,sans-serif;padding:40px;color:#000}
-      h2{text-align:center;margin-bottom:4px}
-      .sub{text-align:center;font-size:13px;margin-bottom:20px}
-      table{width:100%;border-collapse:collapse;margin-bottom:16px}
-      td,th{border:1px solid #888;padding:7px 10px;font-size:13px}
-      th{background:#f0f0f0;font-weight:600}
-      .total-row td{font-weight:700;background:#f9fdf9}
-    </style></head><body>
-    <h2>Metro Lyallpur EV</h2>
-    <div class="sub">Invoice / Sale Receipt</div>
-    <table>
-      <tr><th>Ref No.</th><td>${inv.ref||''}</td><th>Date</th><td>${d}</td></tr>
-      <tr><th>Customer Name</th><td>${inv.name||''}</td><th>CNIC</th><td>${inv.cnic||''}</td></tr>
-      <tr><th>Contact</th><td>${inv.contact||''}</td><th>Address</th><td>${inv.address||''}</td></tr>
-    </table>
-    <table>
-      <tr><th>VIN</th><td>${inv.vin||''}</td><th>Motor No.</th><td>${inv.motor||''}</td></tr>
-      <tr><th>Colour</th><td>${inv.colour||''}</td><th>Mode</th><td>${inv.mode||''}</td></tr>
-    </table>
-    <table>
-      <thead><tr><th>Particular</th><th>Qty</th><th>Amount</th></tr></thead>
-      <tbody>
-        <tr><td>${inv.particular||''}</td><td>${inv.quantity||1}</td><td>₨${fmtNum(inv.amount)}</td></tr>
-        <tr><td colspan="2">Amount excl. Sales Tax</td><td>₨${fmtNum(inv.amtEx||inv.amount)}</td></tr>
-        <tr><td colspan="2">Sales Tax (1%)</td><td>₨${fmtNum(inv.salesTx||0)}</td></tr>
-        <tr class="total-row"><td colspan="2">Total</td><td>₨${fmtNum(inv.total||inv.amount)}</td></tr>
-      </tbody>
-    </table>
-    <table>
-      <tr><th>Bank</th><td>${inv.bank||''}</td><th>Dealt By</th><td>${inv.dealtBy||''}</td></tr>
-    </table>
-    <div style="margin-top:40px;font-size:11px;color:#999;text-align:center">
-      Generated by Metro Lyallpur EV Invoice Manager
-    </div></body></html>`;
+function renderInvoiceDocx(inv) {
+  if (!window.PizZip || !window.docxtemplater || !window.INVOICE_TEMPLATE_BASE64) {
+    throw new Error('The built-in invoice template could not be loaded. Refresh the app and try again.');
+  }
+
+  const zip = new window.PizZip(window.INVOICE_TEMPLATE_BASE64, { base64: true });
+  const document = new window.docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: { start: '{{', end: '}}' },
+  });
+  const total = inv.total ?? Number(inv.amount || 0) * Number(inv.quantity || 1);
+  const dateParts = String(inv.date || '').split('-');
+  const displayDate = dateParts.length === 3
+    ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
+    : String(inv.date || '');
+  const formatAmount = value => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount.toLocaleString('en-PK', { maximumFractionDigits: 2 }) : '';
+  };
+
+  document.render({
+    DATE: displayDate,
+    REF: inv.ref || '',
+    Name: inv.name || '',
+    CNIC: inv.cnic || '',
+    Contact: inv.contact || '',
+    Address: inv.address || '',
+    Particular: inv.particular || '',
+    Amount: formatAmount(inv.amount),
+    Total: formatAmount(total),
+    VIN: inv.vin || '',
+    Motor_Number: inv.motor || '',
+    Colour: inv.colour || '',
+    Quantity: inv.quantity || 1,
+    Mode: inv.mode || '',
+    Bank: inv.bank || '',
+    Dealt_by: inv.dealtBy || '',
+    Amt_ex_tx: formatAmount(inv.amtEx),
+    Sales_tx: formatAmount(inv.salesTx),
+  });
+
+  return document.getZip().generate({
+    type: 'blob',
+    compression: 'DEFLATE',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
 }
 
 // ── Word export ────────────────────────────────────────────────────────────────
@@ -1469,47 +1465,20 @@ function exportWordById() {
   if (inv) exportWordInv(inv);
 }
 
-async function exportWordInv(inv, requireTemplate = false) {
-  if (templateServerAvailable || requireTemplate || USE_NETLIFY_FUNCTIONS) {
-    try {
-      toast('Generating Word from template…');
-      const r = await fetch(templateEndpoint('generate-word'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inv),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(err.error || r.statusText);
-      }
-      const blob = await r.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast('Word file downloaded ✓', 'success');
-      return;
-    } catch (err) {
-      console.warn('Template server error, falling back to HTML export:', err.message);
-      if (requireTemplate || USE_NETLIFY_FUNCTIONS) {
-        toast('Invoice saved, but template generation failed — ' + err.message, 'error');
-        return;
-      }
-      toast('Template error — using basic export', 'error');
-    }
+async function exportWordInv(inv) {
+  try {
+    const blob = renderInvoiceDocx(inv);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Word file downloaded ✓', 'success');
+  } catch (error) {
+    console.error('[exportWordInv]', error);
+    toast('Word export failed — ' + error.message, 'error');
   }
-  // Fallback: HTML-in-Word
-  const html = buildInvoiceHTML(inv);
-  const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.doc`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Word file downloaded (basic format)');
 }
 
 // ── PDF export ─────────────────────────────────────────────────────────────────
@@ -1527,16 +1496,6 @@ async function printTemplatePdf(inv) {
   document.getElementById('invoice-pdf-preview')?.remove();
   document.getElementById('invoice-pdf-print-styles')?.remove();
   try {
-    const response = await fetch(templateEndpoint('generate-word'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inv),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || response.statusText);
-    }
-
     if (!window.docx?.renderAsync) throw new Error('DOCX preview library did not load');
     const overlay = document.createElement('div');
     overlay.id = 'invoice-pdf-preview';
@@ -1547,7 +1506,7 @@ async function printTemplatePdf(inv) {
     printStyles.textContent = '#invoice-pdf-preview{position:fixed;inset:0;z-index:10000;overflow:auto;background:#eef1ef;color:#17221c}#invoice-pdf-preview .invoice-pdf-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #d0ddd6}#invoice-pdf-preview .invoice-pdf-toolbar>div{display:flex;gap:8px}#invoice-pdf-preview button{padding:8px 12px;border:1px solid #cbd5cf;border-radius:6px;background:#fff;color:#17221c;font:inherit;cursor:pointer}#invoice-pdf-preview #invoice-pdf-print{background:#1a7a4a;border-color:#1a7a4a;color:#fff}#invoice-pdf-preview #invoice-preview{padding:20px 0}@media print{@page{size:A4;margin:0}body>*:not(#invoice-pdf-preview){display:none!important}#invoice-pdf-preview{position:static;overflow:visible;background:#fff}#invoice-pdf-preview .invoice-pdf-toolbar{display:none!important}#invoice-pdf-preview #invoice-preview{padding:0}.docx-wrapper{background:#fff!important;padding:0!important}.docx-wrapper>section.docx{margin:0!important;box-shadow:none!important}}';
     document.head.appendChild(printStyles);
     const preview = overlay.querySelector('#invoice-preview');
-    const content = await response.arrayBuffer();
+    const content = await renderInvoiceDocx(inv).arrayBuffer();
     await window.docx.renderAsync(content, preview, preview);
     await document.fonts.ready;
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -1567,54 +1526,14 @@ async function printTemplatePdf(inv) {
 }
 
 async function exportPdfInv(inv) {
-  if (USE_NETLIFY_FUNCTIONS) {
-    try {
-      toast('Preparing template for PDF…');
-      await printTemplatePdf(inv);
-      toast('Choose Save as PDF in the print dialog', 'success');
-    } catch (error) {
-      toast('Template PDF preview failed — ' + error.message, 'error');
-    }
-    return;
+  try {
+    toast('Preparing template for PDF…');
+    await printTemplatePdf(inv);
+    toast('Choose Save as PDF in the print dialog', 'success');
+  } catch (error) {
+    console.error('[exportPdfInv]', error);
+    toast('Template PDF preview failed — ' + error.message, 'error');
   }
-
-  if (templateServerAvailable) {
-    try {
-      toast('Generating PDF from template…');
-      const r = await fetch(templateEndpoint('generate-pdf'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inv),
-        signal: AbortSignal.timeout(35000),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(err.error || r.statusText);
-      }
-      const blob = await r.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast('PDF downloaded ✓', 'success');
-      return;
-    } catch (err) {
-      console.warn('PDF via server failed, falling back to print:', err.message);
-      if (err.message.includes('LibreOffice')) {
-        toast('LibreOffice not installed — opening print dialog instead', 'error');
-      } else {
-        toast('PDF error — opening print dialog', 'error');
-      }
-    }
-  }
-  // Fallback: browser print dialog
-  const html = buildInvoiceHTML(inv);
-  const w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
-  w.onload = () => w.print();
 }
 
 // ══════════════════════════════════════════
@@ -1661,9 +1580,6 @@ function exportAllJSON() {
 const BATCH_SIZE = 50;
 
 async function syncToSheets(record) {
-  const url = settings.gsUrl;
-  if (!url) return;
-
   // Single record or full sync
   const records = record ? [record] : invoices;
 
@@ -1671,7 +1587,7 @@ async function syncToSheets(record) {
     // Split into batches
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
-      await gsPost(url, { action: 'sync', records: batch });
+      await gsPost(SHEETS_WEB_APP_URL, { action: 'sync', records: batch });
     }
     updateGsDot(true);
     if (!record) toast(`Synced ${records.length} records to Sheets ☁`, 'success');
@@ -1712,13 +1628,10 @@ async function getSheetRecords(url, action) {
 }
 
 async function syncFromSheets({ silent = false } = {}) {
-  const url = settings.gsUrl;
-  if (!url) return;
-
   try {
     const [remoteInvoices, remoteVins] = await Promise.all([
-      getSheetRecords(url, 'getInvoices'),
-      getSheetRecords(url, 'getVins'),
+      getSheetRecords(SHEETS_WEB_APP_URL, 'getInvoices'),
+      getSheetRecords(SHEETS_WEB_APP_URL, 'getVins'),
     ]);
     const pendingUpdates = new Set([...dirtyInvoices].map(String));
     const pendingDeletes = new Set([...deletedInvoices].map(String));
@@ -1766,19 +1679,15 @@ async function syncFromSheets({ silent = false } = {}) {
 
 // Test uses a GET with ?action=ping — no CORS issue
 async function testConnection({ silent = false } = {}) {
-  const url = document.getElementById('gs-url').value.trim();
-  if (!url) return silent ? undefined : toast('Enter the Apps Script URL first', 'error');
   if (!silent) toast('Connecting to Sheets and loading records…');
 
   try {
-    const endpoint = new URL(url);
+    const endpoint = new URL(SHEETS_WEB_APP_URL);
     endpoint.searchParams.set('action', 'ping');
     const response = await fetch(endpoint);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     if (result.status !== 'ok') throw new Error(result.message || 'Unexpected response');
-    settings.gsUrl = url;
-    save();
     await syncFromSheets({ silent: true });
     if (!silent) toast(`Connected; loaded ${invoices.length} invoices and ${vins.length} VINs`, 'success');
   } catch (error) {
@@ -1789,20 +1698,18 @@ async function testConnection({ silent = false } = {}) {
 }
 
 async function flushDirty() {
-  const url = settings.gsUrl;
-  if (!url) return toast('No Sheets URL configured — go to Settings', 'error');
   const pendingCount = dirtyInvoices.size + deletedInvoices.size + (vinsChanged ? 1 : 0);
   if (!pendingCount) return syncFromSheets();
 
   try {
     const records = invoices.filter(record => dirtyInvoices.has(record.id) || dirtyInvoices.has(String(record.id)));
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      await gsPost(url, { action: 'sync', records: records.slice(i, i + BATCH_SIZE) });
+      await gsPost(SHEETS_WEB_APP_URL, { action: 'sync', records: records.slice(i, i + BATCH_SIZE) });
     }
     for (const id of deletedInvoices) {
-      await gsPost(url, { action: 'deleteInvoice', id });
+      await gsPost(SHEETS_WEB_APP_URL, { action: 'deleteInvoice', id });
     }
-    if (vinsChanged) await gsPost(url, { action: 'syncVins', vins });
+    if (vinsChanged) await gsPost(SHEETS_WEB_APP_URL, { action: 'syncVins', vins });
     clearDirty();
     updateGsDot(true);
     toast(`Synced ${pendingCount} changes to Sheets`, 'success');
@@ -1824,27 +1731,18 @@ function updateGsDot(connected) {
 // ══════════════════════════════════════════
 //  SETTINGS
 // ══════════════════════════════════════════
-function saveGsUrl() {
-  const url = document.getElementById('gs-url').value.trim() || DEFAULT_GS_URL;
-  document.getElementById('gs-url').value = url;
-  settings.gsUrl = url;
-  save();
-  testConnection();
-}
-
 function saveSettings() {
   settings.refYear = document.getElementById('s-ref-year').value.trim();
   settings.refNext = parseInt(document.getElementById('s-ref-next').value)||1;
   settings.dealtBy = document.getElementById('s-dealt-by').value.trim();
-  settings.templatePath = document.getElementById('s-template-path').value.trim();
-  settings.gsUrl = document.getElementById('gs-url').value.trim() || DEFAULT_GS_URL;
+  delete settings.gsUrl;
   save();
   toast('Settings saved!', 'success');
 }
 
 function clearAllData() {
   if (!confirm('⚠️ This will delete ALL invoices and VINs. This cannot be undone. Are you sure?')) return;
-  invoices = []; vins = []; settings = { gsUrl: DEFAULT_GS_URL };
+  invoices = []; vins = []; settings = {};
   save(); updateDashboard(); renderInvoices(); renderVins();
   toast('All data cleared');
 }
@@ -1885,6 +1783,7 @@ function toast(msg, type='') {
 //  START
 // ══════════════════════════════════════════
 init();
+window.setTimeout(() => document.getElementById('app-splash').classList.add('hidden'), 900);
 </script>
 </body>
 </html>
