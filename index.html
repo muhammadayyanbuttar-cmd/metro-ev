@@ -530,7 +530,7 @@
               <button class="btn btn-primary" onclick="saveGsUrl()">Save</button>
               <button class="btn btn-outline" onclick="testConnection()">Test</button>
             </div>
-            <span class="form-hint">Deploy your Google Apps Script as a web app and paste the URL here.</span>
+            <span class="form-hint">The shared Sheets URL is preconfigured for new browsers. You can enter a different URL to override it in this browser.</span>
           </div>
           <div class="card" style="background:var(--green-xlight);border-color:var(--border)">
             <div class="card-body">
@@ -730,6 +730,7 @@
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
+const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbxq8u6ZoEPIqQhxJwDiEcryb1BtqvQrzdkvLONZ5MS0foMRWIIhEU7NmUqjWD7xx_cP/exec';
 let invoices = [];
 let vins = [];
 let settings = {};
@@ -799,6 +800,7 @@ function loadFromStorage() {
     vins     = JSON.parse(localStorage.getItem('mlev_vins')     || '[]');
     settings = JSON.parse(localStorage.getItem('mlev_settings') || '{}');
   } catch(e) { invoices = []; vins = []; settings = {}; }
+  if (!settings.gsUrl) settings.gsUrl = DEFAULT_GS_URL;
   loadDirty();
 }
 
@@ -1823,7 +1825,8 @@ function updateGsDot(connected) {
 //  SETTINGS
 // ══════════════════════════════════════════
 function saveGsUrl() {
-  const url = document.getElementById('gs-url').value.trim();
+  const url = document.getElementById('gs-url').value.trim() || DEFAULT_GS_URL;
+  document.getElementById('gs-url').value = url;
   settings.gsUrl = url;
   save();
   testConnection();
@@ -1834,14 +1837,14 @@ function saveSettings() {
   settings.refNext = parseInt(document.getElementById('s-ref-next').value)||1;
   settings.dealtBy = document.getElementById('s-dealt-by').value.trim();
   settings.templatePath = document.getElementById('s-template-path').value.trim();
-  if (document.getElementById('gs-url').value.trim()) settings.gsUrl = document.getElementById('gs-url').value.trim();
+  settings.gsUrl = document.getElementById('gs-url').value.trim() || DEFAULT_GS_URL;
   save();
   toast('Settings saved!', 'success');
 }
 
 function clearAllData() {
   if (!confirm('⚠️ This will delete ALL invoices and VINs. This cannot be undone. Are you sure?')) return;
-  invoices = []; vins = []; settings = {};
+  invoices = []; vins = []; settings = { gsUrl: DEFAULT_GS_URL };
   save(); updateDashboard(); renderInvoices(); renderVins();
   toast('All data cleared');
 }

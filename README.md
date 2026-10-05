@@ -48,9 +48,11 @@ The Netlify site can also use the existing Google Sheets connection. Invoice rec
    - Who has access: **Anyone**
 5. Click **Deploy**, copy the **Web App URL**
 6. In the app, go to **Settings → Google Sheets Connection**
-7. Paste the URL and click **Save**, then **Test**
+7. The shared Web App URL is preconfigured for new browsers. Click **Save**, then **Test** to verify it.
 
 The app loads existing invoices and VINs from Sheets on startup and when you test/save the connection. Pending local changes can be pushed with the Sync button.
+
+The shared URL is configured by `DEFAULT_GS_URL` in `index.html`, so it is available even when the app is opened in a different browser. If the Apps Script deployment URL changes, update that value and redeploy the app. A URL entered in Settings overrides the shared default only in that browser.
 
 When updating `google-apps-script.js`, publish a new web-app version from **Deploy → Manage deployments → Edit → New version → Deploy**. This is required for the spreadsheet-timezone date formatting fix to take effect.
 
