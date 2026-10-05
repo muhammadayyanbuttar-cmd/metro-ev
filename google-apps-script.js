@@ -107,7 +107,7 @@ function deleteInvoiceById(id) {
 }
 
 // ─── VINS ─────────────────────────────────────────────────────────────────────
-const VIN_HEADERS = ['vin','desc','colour'];
+const VIN_HEADERS = ['vin','desc','colour','motor'];
 
 function syncVins(vins) {
   const sheet = getSheet(SHEET_NAME_VINS);
@@ -117,7 +117,7 @@ function syncVins(vins) {
     sheet.deleteRows(2, sheet.getLastRow() - 1);
   }
   vins.forEach(v => {
-    sheet.appendRow([v.vin || '', v.desc || '', v.colour || '']);
+    sheet.appendRow([v.vin || '', v.desc || '', v.colour || '', v.motor || '']);
   });
 }
 

@@ -103,12 +103,20 @@ Amount ex tx = Total − Sales Tax
 
 ## 🚗 VIN Bulk Import (CSV)
 
-To bulk-import VINs, create a CSV file with columns:
+To bulk-import VINs, create a CSV file with columns such as:
 ```
 VIN,Model/Description,Colour
 DD35G48130000922,Metro Wonder Bike,Red
 T910L723000002660,Metro T9 Sport LFP,Blue
 ```
+
+The importer also accepts the VIN registry format with a separate motor number and particulars:
+```
+VIN,Motor_Number,Particulars,Colour
+123,123456,Metro Wonder Bike,Blue
+```
+
+Headers are matched case-insensitively, and quoted values with commas are supported. Imported motor numbers, particulars, and colours are kept in the VIN registry and can be filled into invoices by selecting the VIN.
 
 Go to **VIN Manager → Bulk Import CSV** and select the file.
 

@@ -498,14 +498,18 @@
           <span class="card-title">Add / Import VINs</span>
         </div>
         <div class="card-body">
-          <div class="form-grid form-grid-3">
+          <div class="form-grid form-grid-2">
             <div class="form-group">
               <label class="form-label">VIN</label>
               <input class="form-input text-mono" id="vin-input" placeholder="Enter VIN number...">
             </div>
             <div class="form-group">
-              <label class="form-label">Model / Description</label>
-              <input class="form-input" id="vin-desc" placeholder="e.g. Metro Wonder Bike">
+              <label class="form-label">Motor Number</label>
+              <input class="form-input text-mono" id="vin-motor" placeholder="Motor number">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Particulars</label>
+              <input class="form-input" id="vin-desc" placeholder="Particulars">
             </div>
             <div class="form-group">
               <label class="form-label">Colour</label>
@@ -530,7 +534,7 @@
         <div class="card-body" style="padding:0">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>VIN</th><th>Model</th><th>Colour</th><th>Actions</th></tr></thead>
+              <thead><tr><th>VIN</th><th>Motor Number</th><th>Particulars</th><th>Colour</th><th>Actions</th></tr></thead>
               <tbody id="vin-tbody"></tbody>
             </table>
           </div>
@@ -757,7 +761,11 @@
           <input class="form-input text-mono" id="ve-vin">
         </div>
         <div class="form-group">
-          <label class="form-label">Model / Description</label>
+          <label class="form-label">Motor Number</label>
+          <input class="form-input text-mono" id="ve-motor">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Particulars</label>
           <input class="form-input" id="ve-desc">
         </div>
         <div class="form-group">
@@ -1157,7 +1165,11 @@ function updateInvoice() {
 // ══════════════════════════════════════════
 function getMatchingVins(query) {
   const q = query.toUpperCase();
-  return vins.filter(v => v.vin.toUpperCase().includes(q) || (v.desc||'').toLowerCase().includes(query.toLowerCase()));
+  return vins.filter(v =>
+    v.vin.toUpperCase().includes(q) ||
+    (v.motor||'').toLowerCase().includes(query.toLowerCase()) ||
+    (v.desc||'').toLowerCase().includes(query.toLowerCase())
+  );
 }
 
 function onVinInput(input) {
@@ -1167,15 +1179,16 @@ function onVinInput(input) {
   if (!matches.length && !q) { dd.classList.remove('open'); return; }
   if (!matches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = matches.slice(0,10).map((v,i) =>
-    `<div class="vin-option" onmousedown="selectVin('${v.vin}','${v.desc||''}','${v.colour||''}')">
+    `<div class="vin-option" onmousedown="selectVin('${v.vin}','${v.desc||''}','${v.colour||''}','${v.motor||''}')">
       ${v.vin}
-      <div class="vin-label">${v.desc||''} ${v.colour ? '· '+v.colour : ''}</div>
+      <div class="vin-label">${v.motor ? v.motor+' · ' : ''}${v.desc||''} ${v.colour ? '· '+v.colour : ''}</div>
     </div>`).join('');
   dd.classList.add('open');
 }
 
-function selectVin(vin, desc, colour) {
+function selectVin(vin, desc, colour, motor) {
   document.getElementById('f-vin').value = vin;
+  if (motor && !document.getElementById('f-motor').value) document.getElementById('f-motor').value = motor;
   if (desc && !document.getElementById('f-particular').value) document.getElementById('f-particular').value = desc;
   if (colour && !document.getElementById('f-colour').value) document.getElementById('f-colour').value = colour;
   document.getElementById('vin-dropdown').classList.remove('open');
@@ -1189,15 +1202,17 @@ function onVinInputEdit(input) {
   const dd = document.getElementById('vin-dropdown-edit');
   if (!matches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = matches.slice(0,10).map(v =>
-    `<div class="vin-option" onmousedown="selectVinEdit('${v.vin}','${v.colour||''}')">
+    `<div class="vin-option" onmousedown="selectVinEdit('${v.vin}','${v.colour||''}','${v.motor||''}','${v.desc||''}')">
       ${v.vin}
-      <div class="vin-label">${v.desc||''} ${v.colour?'· '+v.colour:''}</div>
+      <div class="vin-label">${v.motor ? v.motor+' · ' : ''}${v.desc||''} ${v.colour?'· '+v.colour:''}</div>
     </div>`).join('');
   dd.classList.add('open');
 }
 
-function selectVinEdit(vin, colour) {
+function selectVinEdit(vin, colour, motor, desc) {
   document.getElementById('e-vin').value = vin;
+  if (motor && !document.getElementById('e-motor').value) document.getElementById('e-motor').value = motor;
+  if (desc && !document.getElementById('e-particular').value) document.getElementById('e-particular').value = desc;
   if (colour) document.getElementById('e-colour').value = colour;
   document.getElementById('vin-dropdown-edit').classList.remove('open');
 }
@@ -1209,14 +1224,16 @@ function closeVinDropdownEdit() { setTimeout(()=>document.getElementById('vin-dr
 // ══════════════════════════════════════════
 function addVin() {
   const vin = document.getElementById('vin-input').value.trim().toUpperCase();
+  const motor = document.getElementById('vin-motor').value.trim();
   const desc = document.getElementById('vin-desc').value.trim();
   const colour = document.getElementById('vin-colour').value.trim();
   if (!vin) return toast('Enter a VIN', 'error');
   if (vins.find(v => v.vin === vin)) return toast('VIN already exists', 'error');
-  vins.push({ vin, desc, colour });
+  vins.push({ vin, motor, desc, colour });
   markVinsDirty();
   save(); renderVins();
   document.getElementById('vin-input').value = '';
+  document.getElementById('vin-motor').value = '';
   document.getElementById('vin-desc').value = '';
   document.getElementById('vin-colour').value = '';
   toast('VIN added!', 'success');
@@ -1226,12 +1243,13 @@ function renderVins() {
   const tbody = document.getElementById('vin-tbody');
   document.getElementById('vin-count').textContent = vins.length + ' VINs';
   if (!vins.length) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🚗</div><h3>No VINs registered</h3></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚗</div><h3>No VINs registered</h3></div></td></tr>`;
     return;
   }
   tbody.innerHTML = vins.map((v,i) => `
     <tr>
       <td class="text-mono fw-6">${v.vin}</td>
+      <td>${v.motor||'—'}</td>
       <td>${v.desc||'—'}</td>
       <td>${v.colour||'—'}</td>
       <td>
@@ -1254,6 +1272,7 @@ function openVinEdit(i) {
   currentEditVinIdx = i;
   const v = vins[i];
   document.getElementById('ve-vin').value = v.vin;
+  document.getElementById('ve-motor').value = v.motor||'';
   document.getElementById('ve-desc').value = v.desc||'';
   document.getElementById('ve-colour').value = v.colour||'';
   openModal('vin-edit-modal');
@@ -1264,25 +1283,131 @@ function saveVinEdit() {
   const newVin = document.getElementById('ve-vin').value.trim().toUpperCase();
   if (!newVin) return toast('VIN cannot be empty', 'error');
   v.vin = newVin;
+  v.motor = document.getElementById('ve-motor').value.trim();
   v.desc = document.getElementById('ve-desc').value.trim();
   v.colour = document.getElementById('ve-colour').value.trim();
   markVinsDirty(); save(); renderVins(); closeModal('vin-edit-modal');
   toast('VIN updated!', 'success');
 }
 
+function parseCSVRows(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        value += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === ',' && !inQuotes) {
+      row.push(value.trim());
+      value = '';
+      continue;
+    }
+
+    if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(value.trim());
+      if (row.some(cell => cell !== '')) rows.push(row);
+      row = [];
+      value = '';
+      continue;
+    }
+
+    value += ch;
+  }
+
+  if (value.length || row.length) {
+    row.push(value.trim());
+    if (row.some(cell => cell !== '')) rows.push(row);
+  }
+
+  return rows;
+}
+
+function normalizeCSVHeader(value) {
+  return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function findCSVColumnIndex(headers, aliases) {
+  const normalized = headers.map(h => normalizeCSVHeader(h));
+  for (const alias of aliases) {
+    const target = normalizeCSVHeader(alias);
+    const idx = normalized.findIndex(h => h === target || h.includes(target));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function extractVINImportRow(row, headers) {
+  const findColumn = aliases => {
+    const index = findCSVColumnIndex(headers, aliases);
+    return index >= 0 ? index : -1;
+  };
+  const vinColumn = findColumn(['vin']);
+  const motorColumn = findColumn(['motor number', 'motor no', 'motor']);
+  const descColumn = findColumn(['particular', 'particulars', 'description', 'desc', 'model']);
+  const colourColumn = findColumn(['colour', 'color']);
+  const vinIndex = vinColumn >= 0 ? vinColumn : 0;
+  const motorIndex = motorColumn;
+  const descIndex = descColumn >= 0 ? descColumn : (motorIndex >= 0 ? -1 : 1);
+  const colourIndex = colourColumn >= 0
+    ? colourColumn
+    : row.length > 2 ? row.length - 1 : Math.min(2, row.length - 1);
+
+  const vin = (row[vinIndex] || '').trim().toUpperCase();
+  const motor = motorIndex >= 0 ? (row[motorIndex] || '').trim() : '';
+  const colour = (row[colourIndex] || '').trim();
+  const descValue = descIndex >= 0 ? (row[descIndex] || '').trim() : '';
+
+  if (!vin) return null;
+
+  let desc = descValue || '';
+  if (!desc) {
+    const fallbackValues = row
+      .map((cell, index) => ({ cell, index }))
+      .filter(({ cell, index }) => index !== vinIndex && index !== motorIndex && index !== colourIndex && (cell || '').trim())
+      .map(({ cell }) => cell.trim());
+    desc = fallbackValues.join(' ');
+  }
+
+  return { vin, motor, desc, colour };
+}
+
 function importVinCSV(input) {
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const lines = e.target.result.split('\n').filter(Boolean);
+    const rows = parseCSVRows(e.target.result);
+    if (!rows.length) {
+      toast('CSV is empty', 'error');
+      input.value = '';
+      return;
+    }
+
+    const hasHeader = rows[0].some(cell => /vin/i.test(cell) || /colour|color|particular|model|description|motor/i.test(cell));
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const headers = hasHeader ? rows[0] : ['VIN', 'Model/Description', 'Colour'];
+
     let added = 0;
-    lines.forEach(line => {
-      const parts = line.split(',');
-      const vin = (parts[0]||'').trim().toUpperCase();
-      if (!vin || vins.find(v => v.vin===vin)) return;
-      vins.push({ vin, desc: (parts[1]||'').trim(), colour: (parts[2]||'').trim() });
+    dataRows.forEach(row => {
+      if (!Array.isArray(row) || !row.length) return;
+      const record = extractVINImportRow(row, headers);
+      if (!record) return;
+      if (vins.find(v => v.vin === record.vin)) return;
+      vins.push({ vin: record.vin, motor: record.motor, desc: record.desc, colour: record.colour });
       added++;
     });
+
     if (added > 0) markVinsDirty();
     save(); renderVins();
     toast(`${added} VINs imported`, 'success');
@@ -1661,6 +1786,7 @@ async function syncFromSheets({ silent = false } = {}) {
         vin: String(record.vin).toUpperCase(),
         desc: record.desc || '',
         colour: record.colour || '',
+        motor: record.motor || '',
       }));
     }
 
