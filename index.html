@@ -68,6 +68,7 @@
 
   /* ── BUTTONS ── */
   .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; font-family: inherit; line-height: 1; }
+  .btn[hidden] { display: none; }
   .btn-primary { background: var(--green); color: #fff; }
   .btn-primary:hover { background: var(--green-mid); }
   .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink-mid); }
@@ -471,6 +472,7 @@
         <input class="form-input" type="date" id="search-to" style="width:160px" oninput="renderInvoices()" title="To date">
         <button class="btn btn-outline btn-sm" onclick="clearSearch()">Clear</button>
         <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+        <button class="btn btn-danger btn-sm" id="delete-selected-invoices" onclick="deleteSelectedInvoices()" hidden>Delete selected</button>
       </div>
       <div class="card">
         <div class="card-body" style="padding:0">
@@ -478,6 +480,7 @@
             <table>
               <thead>
                 <tr>
+                  <th><input type="checkbox" id="select-page-invoices" aria-label="Select all invoices on this page" onchange="selectPageInvoices(this.checked)"></th>
                   <th>#</th><th>Ref No.</th><th>Date</th><th>Customer</th><th>VIN</th><th>Particular</th><th>Amount</th><th>Actions</th>
                 </tr>
               </thead>
@@ -527,12 +530,15 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">VIN Registry</span>
-          <span class="text-sm text-muted" id="vin-count">0 VINs</span>
+          <div class="flex gap-2" style="align-items:center">
+            <button class="btn btn-danger btn-sm" id="delete-selected-vins" onclick="deleteSelectedVins()" hidden>Delete selected</button>
+            <span class="text-sm text-muted" id="vin-count">0 VINs</span>
+          </div>
         </div>
         <div class="card-body" style="padding:0">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>VIN</th><th>Motor Number</th><th>Particulars</th><th>Colour</th><th>Actions</th></tr></thead>
+              <thead><tr><th><input type="checkbox" id="select-all-vins" aria-label="Select all VINs" onchange="selectAllVins(this.checked)"></th><th>VIN</th><th>Motor Number</th><th>Particulars</th><th>Colour</th><th>Actions</th></tr></thead>
               <tbody id="vin-tbody"></tbody>
             </table>
           </div>
@@ -791,6 +797,8 @@ let settings = {};
 let currentEditId = null;
 let currentEditVinIdx = null;
 let currentPage = 1;
+let selectedInvoiceIds = new Set();
+let selectedVinIndices = new Set();
 const PAGE_SIZE = 15;
 
 // Dirty tracking — only sync what changed
@@ -1030,6 +1038,8 @@ function getFiltered() {
 }
 
 function renderInvoices() {
+  const invoiceIds = new Set(invoices.map(inv => String(inv.id)));
+  selectedInvoiceIds = new Set([...selectedInvoiceIds].filter(id => invoiceIds.has(id)));
   const filtered = getFiltered();
   const total = filtered.length;
   const pages = Math.ceil(total / PAGE_SIZE) || 1;
@@ -1038,10 +1048,11 @@ function renderInvoices() {
 
   const tbody = document.getElementById('invoices-tbody');
   if (!slice.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices found</h3><p>Try adjusting your search filters</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices found</h3><p>Try adjusting your search filters</p></div></td></tr>`;
   } else {
     tbody.innerHTML = slice.map((inv, i) => `
       <tr>
+        <td><input type="checkbox" aria-label="Select invoice ${inv.ref || inv.id}" data-invoice-id="${encodeURIComponent(String(inv.id))}" ${selectedInvoiceIds.has(String(inv.id)) ? 'checked' : ''} onchange="toggleInvoiceSelection(this.dataset.invoiceId, this.checked)"></td>
         <td>${inv.id}</td>
         <td><span class="text-mono fw-6">${inv.ref||'—'}</span></td>
         <td>${formatDate(inv.date)}</td>
@@ -1057,7 +1068,47 @@ function renderInvoices() {
         </td>
       </tr>`).join('');
   }
+  updateInvoiceSelectionControls(slice);
   renderPagination(pages);
+}
+
+function updateInvoiceSelectionControls(pageInvoices) {
+  const pageIds = pageInvoices.map(inv => String(inv.id));
+  const selectedOnPage = pageIds.filter(id => selectedInvoiceIds.has(id)).length;
+  const selectPage = document.getElementById('select-page-invoices');
+  selectPage.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+  selectPage.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+  const deleteButton = document.getElementById('delete-selected-invoices');
+  deleteButton.hidden = selectedInvoiceIds.size === 0;
+  deleteButton.textContent = `Delete selected (${selectedInvoiceIds.size})`;
+}
+
+function toggleInvoiceSelection(encodedId, checked) {
+  const id = decodeURIComponent(encodedId);
+  if (checked) selectedInvoiceIds.add(id);
+  else selectedInvoiceIds.delete(id);
+  renderInvoices();
+}
+
+function selectPageInvoices(checked) {
+  const pageInvoices = getFiltered().slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  pageInvoices.forEach(inv => {
+    const id = String(inv.id);
+    if (checked) selectedInvoiceIds.add(id);
+    else selectedInvoiceIds.delete(id);
+  });
+  renderInvoices();
+}
+
+function deleteSelectedInvoices() {
+  const selected = invoices.filter(inv => selectedInvoiceIds.has(String(inv.id)));
+  if (!selected.length) return;
+  if (!confirm(`Delete ${selected.length} selected invoice${selected.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+  selected.forEach(inv => markDeleted(inv.id));
+  invoices = invoices.filter(inv => !selectedInvoiceIds.has(String(inv.id)));
+  selectedInvoiceIds.clear();
+  save(); renderInvoices(); updateDashboard();
+  toast(`${selected.length} invoice${selected.length === 1 ? '' : 's'} deleted`);
 }
 
 function renderPagination(pages) {
@@ -1083,6 +1134,7 @@ function clearSearch() {
 function deleteInvoice(id) {
   if (!confirm('Delete this invoice?')) return;
   invoices = invoices.filter(i => i.id !== id);
+  selectedInvoiceIds.delete(String(id));
   markDeleted(id);
   save(); renderInvoices(); updateDashboard();
   toast('Invoice deleted');
@@ -1237,29 +1289,62 @@ function addVin() {
 function renderVins() {
   const tbody = document.getElementById('vin-tbody');
   document.getElementById('vin-count').textContent = vins.length + ' VINs';
+  selectedVinIndices = new Set([...selectedVinIndices].filter(i => i >= 0 && i < vins.length));
   if (!vins.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚗</div><h3>No VINs registered</h3></div></td></tr>`;
-    return;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🚗</div><h3>No VINs registered</h3></div></td></tr>`;
+  } else {
+    tbody.innerHTML = vins.map((v,i) => `
+      <tr>
+        <td><input type="checkbox" aria-label="Select VIN ${v.vin}" data-vin-index="${i}" ${selectedVinIndices.has(i) ? 'checked' : ''} onchange="toggleVinSelection(this.dataset.vinIndex, this.checked)"></td>
+        <td class="text-mono fw-6">${v.vin}</td>
+        <td>${v.motor||'—'}</td>
+        <td>${v.desc||'—'}</td>
+        <td>${v.colour||'—'}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="openVinEdit(${i})">✏️</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteVin(${i})">🗑</button>
+          </div>
+        </td>
+      </tr>`).join('');
   }
-  tbody.innerHTML = vins.map((v,i) => `
-    <tr>
-      <td class="text-mono fw-6">${v.vin}</td>
-      <td>${v.motor||'—'}</td>
-      <td>${v.desc||'—'}</td>
-      <td>${v.colour||'—'}</td>
-      <td>
-        <div class="flex gap-2">
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="openVinEdit(${i})">✏️</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteVin(${i})">🗑</button>
-        </div>
-      </td>
-    </tr>`).join('');
+  const selectAll = document.getElementById('select-all-vins');
+  selectAll.checked = vins.length > 0 && selectedVinIndices.size === vins.length;
+  selectAll.indeterminate = selectedVinIndices.size > 0 && selectedVinIndices.size < vins.length;
+  const deleteButton = document.getElementById('delete-selected-vins');
+  deleteButton.hidden = selectedVinIndices.size === 0;
+  deleteButton.textContent = `Delete selected (${selectedVinIndices.size})`;
   document.getElementById('stat-vins').textContent = vins.length;
+}
+
+function toggleVinSelection(index, checked) {
+  const vinIndex = Number(index);
+  if (!Number.isInteger(vinIndex) || vinIndex < 0 || vinIndex >= vins.length) return;
+  if (checked) selectedVinIndices.add(vinIndex);
+  else selectedVinIndices.delete(vinIndex);
+  renderVins();
+}
+
+function selectAllVins(checked) {
+  selectedVinIndices = checked ? new Set(vins.map((_, i) => i)) : new Set();
+  renderVins();
+}
+
+function deleteSelectedVins() {
+  const selectedIndices = [...selectedVinIndices].filter(i => i >= 0 && i < vins.length);
+  if (!selectedIndices.length) return;
+  if (!confirm(`Remove ${selectedIndices.length} selected VIN${selectedIndices.length === 1 ? '' : 's'} from the registry? This cannot be undone.`)) return;
+  selectedIndices.sort((a, b) => b - a).forEach(i => vins.splice(i, 1));
+  selectedVinIndices.clear();
+  markVinsDirty(); save(); renderVins(); updateDashboard();
+  toast(`${selectedIndices.length} VIN${selectedIndices.length === 1 ? '' : 's'} removed`);
 }
 
 function deleteVin(i) {
   if (!confirm('Remove this VIN from registry?')) return;
-  vins.splice(i,1); markVinsDirty(); save(); renderVins();
+  vins.splice(i,1);
+  selectedVinIndices.clear();
+  markVinsDirty(); save(); renderVins();
   toast('VIN removed');
 }
 
@@ -1730,6 +1815,7 @@ async function syncFromSheets({ silent = false } = {}) {
     invoices = [...mergedInvoices.values()].sort((a, b) => Number(b.id) - Number(a.id));
 
     if (!vinsChanged && remoteVins.length) {
+      selectedVinIndices.clear();
       vins = remoteVins.filter(record => record.vin).map(record => ({
         vin: String(record.vin).toUpperCase(),
         desc: record.desc || '',
