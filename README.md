@@ -25,7 +25,7 @@ metro-ev-invoice/
 ## 🚀 Quick Start
 
 1. Open `index.html` in a modern browser (Chrome, Edge, Firefox). No npm install, server startup, or activation is required.
-2. The DOCX template and rendering libraries are bundled with the app; Word export and PDF preview use the same template directly in the browser.
+2. The DOCX template and rendering libraries are bundled with the app; Word export uses the template directly in the browser.
 3. Data is saved locally in your browser's localStorage.
 4. Optionally connect Google Sheets for cloud backup (see below)
 
@@ -34,7 +34,7 @@ metro-ev-invoice/
 1. Push the project folder to a Git repository and import it in Netlify, or run `npx netlify deploy` from this folder.
 2. Use the repository root as the base and publish directory. Leave the build command empty.
 3. Netlify serves the app and its bundled static assets; there is no template function to deploy.
-4. Word export renders the embedded DOCX in the browser. PDF export renders the same DOCX in the browser and opens the print dialog; choose **Save as PDF**.
+4. Word export renders the embedded DOCX in the browser.
 
 The Netlify site can also use the existing Google Sheets connection. Invoice records remain in each browser's local storage unless Sheets is configured.
 
@@ -63,9 +63,9 @@ When updating `google-apps-script.js`, publish a new web-app version from **Depl
 
 ---
 
-## 📋 Invoice Template (Word/PDF Export)
+## 📋 Invoice Template (Word Export)
 
-The app includes the `templates/invoice.docx` content in `invoice-template-data.js`, so Word export and PDF preview work without a separate server. If you edit the Word template, rebuild the embedded data with `node scripts/embed-template.js` and deploy both files. The template uses these placeholder tags which are replaced at export time:
+The app includes the `templates/invoice.docx` content in `invoice-template-data.js`, so Word export works without a separate server. If you edit the Word template, rebuild the embedded data with `node scripts/embed-template.js` and deploy both files. The template uses these placeholder tags which are replaced at export time:
 
 | Placeholder | Description |
 |---|---|

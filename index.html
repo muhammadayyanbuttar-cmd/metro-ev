@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
 <script src="vendor/pizzip.min.js"></script>
 <script src="vendor/docxtemplater.min.js"></script>
 <script src="invoice-template-data.js"></script>
@@ -456,7 +455,6 @@
             <button class="btn btn-outline" onclick="resetInvoiceForm()">Cancel</button>
             <button class="btn btn-primary" onclick="saveInvoice()">💾 Save Invoice</button>
             <button class="btn btn-outline" id="btn-export-word" onclick="exportWord()" style="display:none">📄 Export Word</button>
-            <button class="btn btn-outline" id="btn-export-pdf" onclick="exportPdf()" style="display:none">🖨 Export PDF</button>
           </div>
         </div>
       </div>
@@ -740,7 +738,6 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="exportWordById()">📄 Word</button>
-      <button class="btn btn-outline btn-sm" onclick="exportPdfById()">🖨 PDF</button>
       <button class="btn btn-outline" onclick="closeModal('edit-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="updateInvoice()">Save Changes</button>
     </div>
@@ -951,7 +948,6 @@ function resetInvoiceForm() {
   setNextRef();
   if (settings.dealtBy) document.getElementById('f-dealt-by').value = settings.dealtBy;
   document.getElementById('btn-export-word').style.display = 'none';
-  document.getElementById('btn-export-pdf').style.display = 'none';
 }
 
 function getFormData() {
@@ -1011,7 +1007,6 @@ function saveInvoice() {
   markDirty(record.id);
   toast('Invoice saved!', 'success');
   document.getElementById('btn-export-word').style.display = '';
-  document.getElementById('btn-export-pdf').style.display = '';
   updateDashboard();
   currentEditId = record.id; // for export buttons
   exportWordInv(record);
@@ -1527,7 +1522,7 @@ function updateDashboard() {
 }
 
 // ══════════════════════════════════════════
-//  EXPORT (Word / PDF)
+//  EXPORT (Word)
 // ══════════════════════════════════════════
 
 function renderInvoiceDocx(inv) {
@@ -1596,68 +1591,21 @@ async function exportWordInv(inv) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Invoice_${(inv.ref || inv.id).replace(/\//g, '-')}.docx`;
+    const safeFilenamePart = value => String(value || '')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[.-]+|[.-]+$/g, '');
+    const customerName = safeFilenamePart(inv.name) || 'customer';
+    const invoiceDate = safeFilenamePart(inv.date) || 'undated';
+    a.download = `${customerName}-${invoiceDate}-invoice.docx`;
     a.click();
     URL.revokeObjectURL(url);
     toast('Word file downloaded ✓', 'success');
   } catch (error) {
     console.error('[exportWordInv]', error);
     toast('Word export failed — ' + error.message, 'error');
-  }
-}
-
-// ── PDF export ─────────────────────────────────────────────────────────────────
-function exportPdf() {
-  const inv = invoices.find(i => i.id === currentEditId);
-  if (!inv) return toast('Save invoice first', 'error');
-  exportPdfInv(inv);
-}
-function exportPdfById() {
-  const inv = invoices.find(i => i.id === currentEditId);
-  if (inv) exportPdfInv(inv);
-}
-
-async function printTemplatePdf(inv) {
-  document.getElementById('invoice-pdf-preview')?.remove();
-  document.getElementById('invoice-pdf-print-styles')?.remove();
-  try {
-    if (!window.docx?.renderAsync) throw new Error('DOCX preview library did not load');
-    const overlay = document.createElement('div');
-    overlay.id = 'invoice-pdf-preview';
-    overlay.innerHTML = `<div class="invoice-pdf-toolbar"><strong>Invoice ${inv.ref || inv.id}</strong><div><button type="button" id="invoice-pdf-print">Print / Save as PDF</button><button type="button" id="invoice-pdf-close" aria-label="Close preview">Close</button></div></div><main id="invoice-preview"></main>`;
-    document.body.appendChild(overlay);
-    const printStyles = document.createElement('style');
-    printStyles.id = 'invoice-pdf-print-styles';
-    printStyles.textContent = '#invoice-pdf-preview{position:fixed;inset:0;z-index:10000;overflow:auto;background:#eef1ef;color:#17221c}#invoice-pdf-preview .invoice-pdf-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #d0ddd6}#invoice-pdf-preview .invoice-pdf-toolbar>div{display:flex;gap:8px}#invoice-pdf-preview button{padding:8px 12px;border:1px solid #cbd5cf;border-radius:6px;background:#fff;color:#17221c;font:inherit;cursor:pointer}#invoice-pdf-preview #invoice-pdf-print{background:#1a7a4a;border-color:#1a7a4a;color:#fff}#invoice-pdf-preview #invoice-preview{padding:20px 0}@media print{@page{size:A4;margin:0}body>*:not(#invoice-pdf-preview){display:none!important}#invoice-pdf-preview{position:static;overflow:visible;background:#fff}#invoice-pdf-preview .invoice-pdf-toolbar{display:none!important}#invoice-pdf-preview #invoice-preview{padding:0}.docx-wrapper{background:#fff!important;padding:0!important}.docx-wrapper>section.docx{margin:0!important;box-shadow:none!important}}';
-    document.head.appendChild(printStyles);
-    const preview = overlay.querySelector('#invoice-preview');
-    const content = await renderInvoiceDocx(inv).arrayBuffer();
-    await window.docx.renderAsync(content, preview, preview);
-    await document.fonts.ready;
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (!preview.children.length) throw new Error('The invoice template rendered no visible content');
-
-    overlay.querySelector('#invoice-pdf-print').addEventListener('click', () => window.print());
-    overlay.querySelector('#invoice-pdf-close').addEventListener('click', () => {
-      overlay.remove();
-      printStyles.remove();
-    });
-    window.print();
-  } catch (error) {
-    document.getElementById('invoice-pdf-preview')?.remove();
-    document.getElementById('invoice-pdf-print-styles')?.remove();
-    throw error;
-  }
-}
-
-async function exportPdfInv(inv) {
-  try {
-    toast('Preparing template for PDF…');
-    await printTemplatePdf(inv);
-    toast('Choose Save as PDF in the print dialog', 'success');
-  } catch (error) {
-    console.error('[exportPdfInv]', error);
-    toast('Template PDF preview failed — ' + error.message, 'error');
   }
 }
 
