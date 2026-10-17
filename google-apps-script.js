@@ -67,7 +67,7 @@ function doPost(e) {
 
 // ─── INVOICES ─────────────────────────────────────────────────────────────────
 const INVOICE_HEADERS = [
-  'id','ref','date','name','cnic','contact','address',
+  'id','date','name','cnic','contact','address',
   'vin','motor','colour','particular','quantity',
   'amount','amtEx','salesTx','total',
   'mode','bank','dealtBy','timestamp','legacy'

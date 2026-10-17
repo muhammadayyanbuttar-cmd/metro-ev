@@ -11,7 +11,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="vendor/pizzip.min.js"></script>
 <script src="vendor/docxtemplater.min.js"></script>
-<script src="invoice-template-data.js"></script>
 <style>
   :root {
     --green: #1a7a4a;
@@ -330,7 +329,7 @@
         <div class="card-body" style="padding:0">
           <div class="table-wrap">
             <table id="recent-table">
-              <thead><tr><th>Ref No.</th><th>Date</th><th>Customer</th><th>VIN</th><th>Amount</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Customer</th><th>VIN</th><th>Amount</th><th></th></tr></thead>
               <tbody id="recent-tbody"></tbody>
             </table>
           </div>
@@ -349,11 +348,7 @@
         </div>
         <div class="card-body">
           <div class="form-grid mb-4">
-            <div class="form-grid form-grid-3">
-              <div class="form-group">
-                <label class="form-label">Ref No. <span class="required">*</span></label>
-                <input class="form-input text-mono" id="f-ref" placeholder="26/001" value="">
-              </div>
+            <div class="form-grid form-grid-2">
               <div class="form-group">
                 <label class="form-label">Date <span class="required">*</span></label>
                 <input class="form-input" type="date" id="f-date">
@@ -466,7 +461,7 @@
       <div class="search-bar">
         <div class="search-input-wrap">
           <span class="search-icon">🔍</span>
-          <input class="form-input" id="search-q" placeholder="Search name, VIN, ref no..." oninput="renderInvoices()">
+          <input class="form-input" id="search-q" placeholder="Search name, VIN, customer..." oninput="renderInvoices()">
         </div>
         <input class="form-input" type="date" id="search-from" style="width:160px" oninput="renderInvoices()" title="From date">
         <input class="form-input" type="date" id="search-to" style="width:160px" oninput="renderInvoices()" title="To date">
@@ -481,7 +476,7 @@
               <thead>
                 <tr>
                   <th><input type="checkbox" id="select-page-invoices" aria-label="Select all invoices on this page" onchange="selectPageInvoices(this.checked)"></th>
-                  <th>#</th><th>Ref No.</th><th>Date</th><th>Customer</th><th>VIN</th><th>Particular</th><th>Amount</th><th>Actions</th>
+                  <th>#</th><th>Date</th><th>Customer</th><th>VIN</th><th>Particular</th><th>Amount</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody id="invoices-tbody"></tbody>
@@ -612,19 +607,9 @@
       <div class="card mb-4">
         <div class="card-header"><span class="card-title">Invoice Defaults</span></div>
         <div class="card-body">
-          <div class="form-grid form-grid-2">
-            <div class="form-group">
-              <label class="form-label">Default Ref Year</label>
-              <input class="form-input" id="s-ref-year" placeholder="26" maxlength="2">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Next Ref Number</label>
-              <input class="form-input" id="s-ref-next" type="number" placeholder="001">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Default Dealt By</label>
-              <input class="form-input" id="s-dealt-by" placeholder="Sales rep name">
-            </div>
+          <div class="form-group">
+            <label class="form-label">Default Dealt By</label>
+            <input class="form-input" id="s-dealt-by" placeholder="Sales rep name">
           </div>
           <button class="btn btn-primary mt-4" onclick="saveSettings()">Save Settings</button>
         </div>
@@ -652,11 +637,7 @@
       <button class="btn btn-ghost btn-icon" onclick="closeModal('edit-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid form-grid-3 mb-4">
-        <div class="form-group">
-          <label class="form-label">Ref No.</label>
-          <input class="form-input text-mono" id="e-ref">
-        </div>
+      <div class="form-grid form-grid-2 mb-4">
         <div class="form-group">
           <label class="form-label">Date</label>
           <input class="form-input" type="date" id="e-date">
@@ -851,7 +832,6 @@ function init() {
   renderInvoices();
   renderVins();
   setDefaultDate();
-  setNextRef();
   updatePendingBadge();
   testConnection({ silent: true });
 }
@@ -875,7 +855,6 @@ function save() {
 
 function applySettings() {
   document.getElementById('gs-url').value = SHEETS_WEB_APP_URL;
-  if (settings.refYear) document.getElementById('s-ref-year').value = settings.refYear;
   if (settings.dealtBy) document.getElementById('s-dealt-by').value = settings.dealtBy;
 }
 
@@ -883,14 +862,6 @@ function setDefaultDate() {
   const d = new Date();
   const iso = d.toISOString().split('T')[0];
   document.getElementById('f-date').value = iso;
-}
-
-function setNextRef() {
-  const year = settings.refYear || new Date().getFullYear().toString().slice(-2);
-  let next = settings.refNext || 1;
-  document.getElementById('f-ref').value = `${year}/${String(next).padStart(3,'0')}`;
-  document.getElementById('s-ref-year').value = year;
-  document.getElementById('s-ref-next').value = next;
 }
 
 // ══════════════════════════════════════════
@@ -945,7 +916,7 @@ function recalcEdit() {
 function resetInvoiceForm() {
   currentEditId = null;
   document.getElementById('invoice-form-title').textContent = 'New Invoice';
-  ['f-ref','f-name','f-cnic','f-contact','f-address','f-vin','f-motor',
+  ['f-name','f-cnic','f-contact','f-address','f-vin','f-motor',
    'f-colour','f-particular','f-amount','f-amt-ex','f-sales-tx','f-total',
    'f-mode','f-bank','f-dealt-by'].forEach(id => {
     const el = document.getElementById(id);
@@ -953,7 +924,6 @@ function resetInvoiceForm() {
   });
   document.getElementById('f-quantity').value = 1;
   setDefaultDate();
-  setNextRef();
   if (settings.dealtBy) document.getElementById('f-dealt-by').value = settings.dealtBy;
   document.getElementById('btn-export-word').style.display = 'none';
 }
@@ -965,7 +935,6 @@ function getFormData() {
   const salesTx = parseFloat((total / 101).toFixed(2));
   const amtEx = parseFloat((total - salesTx).toFixed(2));
   return {
-    ref: document.getElementById('f-ref').value.trim(),
     date: document.getElementById('f-date').value,
     name: document.getElementById('f-name').value.trim(),
     cnic: document.getElementById('f-cnic').value.trim(),
@@ -993,7 +962,6 @@ function nextId() {
 
 function saveInvoice() {
   const d = getFormData();
-  if (!d.ref) return toast('Please enter a Ref No.', 'error');
   if (!d.name) return toast('Please enter customer name', 'error');
   if (!d.vin) return toast('Please enter VIN', 'error');
   if (!d.amount) return toast('Please enter amount', 'error');
@@ -1004,13 +972,6 @@ function saveInvoice() {
     timestamp: new Date().toISOString()
   };
   invoices.push(record);
-
-  // bump ref counter
-  const parts = d.ref.split('/');
-  if (parts.length === 2) {
-    settings.refYear = parts[0];
-    settings.refNext = (parseInt(parts[1]) || 0) + 1;
-  }
   save();
   markDirty(record.id);
   toast('Invoice saved!', 'success');
@@ -1028,7 +989,7 @@ function getFiltered() {
   const from = document.getElementById('search-from')?.value || '';
   const to = document.getElementById('search-to')?.value || '';
   return invoices.filter(inv => {
-    const matchQ = !q || [inv.name, inv.vin, inv.ref, inv.particular, inv.cnic]
+    const matchQ = !q || [inv.name, inv.vin, inv.particular, inv.cnic]
       .some(v => (v||'').toLowerCase().includes(q));
     const invDate = inv.date ? inv.date : '';
     const matchFrom = !from || invDate >= from;
@@ -1048,13 +1009,12 @@ function renderInvoices() {
 
   const tbody = document.getElementById('invoices-tbody');
   if (!slice.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices found</h3><p>Try adjusting your search filters</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices found</h3><p>Try adjusting your search filters</p></div></td></tr>`;
   } else {
     tbody.innerHTML = slice.map((inv, i) => `
       <tr>
-        <td><input type="checkbox" aria-label="Select invoice ${inv.ref || inv.id}" data-invoice-id="${encodeURIComponent(String(inv.id))}" ${selectedInvoiceIds.has(String(inv.id)) ? 'checked' : ''} onchange="toggleInvoiceSelection(this.dataset.invoiceId, this.checked)"></td>
+        <td><input type="checkbox" aria-label="Select invoice ${inv.id}" data-invoice-id="${encodeURIComponent(String(inv.id))}" ${selectedInvoiceIds.has(String(inv.id)) ? 'checked' : ''} onchange="toggleInvoiceSelection(this.dataset.invoiceId, this.checked)"></td>
         <td>${inv.id}</td>
-        <td><span class="text-mono fw-6">${inv.ref||'—'}</span></td>
         <td>${formatDate(inv.date)}</td>
         <td>${inv.name||'—'}</td>
         <td><span class="text-mono text-sm">${inv.vin||'—'}</span></td>
@@ -1147,7 +1107,6 @@ function openEdit(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return;
   currentEditId = id;
-  document.getElementById('e-ref').value = inv.ref||'';
   document.getElementById('e-date').value = inv.date||'';
   const modeSelect = document.getElementById('e-mode');
   const savedMode = inv.mode || '';
@@ -1183,7 +1142,6 @@ function updateInvoice() {
   const salesTx = parseFloat((total/101).toFixed(2));
   const amtEx = parseFloat((total-salesTx).toFixed(2));
 
-  inv.ref = document.getElementById('e-ref').value.trim();
   inv.date = document.getElementById('e-date').value;
   inv.mode = document.getElementById('e-mode').value.trim();
   inv.name = document.getElementById('e-name').value.trim();
@@ -1524,7 +1482,6 @@ function importLegacy() {
     const amtEx = parseFloat((total-salesTx).toFixed(2));
     const newRec = {
       id: nextId(),
-      ref: rec.invoice_number || rec.ref || '',
       date: legacyDateToISO(rec.date),
       name: rec.name || '',
       cnic: rec.cnic || '',
@@ -1597,25 +1554,44 @@ function updateDashboard() {
   const tbody = document.getElementById('recent-tbody');
   tbody.innerHTML = recent.map(inv => `
     <tr>
-      <td class="text-mono fw-6">${inv.ref||'—'}</td>
       <td>${formatDate(inv.date)}</td>
       <td>${inv.name||'—'}</td>
       <td class="text-mono text-sm">${inv.vin||'—'}</td>
       <td class="fw-6">₨${fmtNum(inv.total||inv.amount)}</td>
       <td><button class="btn btn-ghost btn-sm" onclick='openEdit(${inv.id})'>Edit</button></td>
-    </tr>`).join('') || '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices yet</h3></div></td></tr>';
+    </tr>`).join('') || '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><h3>No invoices yet</h3></div></td></tr>';
 }
 
 // ══════════════════════════════════════════
 //  EXPORT (Word)
 // ══════════════════════════════════════════
 
-function renderInvoiceDocx(inv) {
-  if (!window.PizZip || !window.docxtemplater || !window.INVOICE_TEMPLATE_BASE64) {
-    throw new Error('The built-in invoice template could not be loaded. Refresh the app and try again.');
+async function getInvoiceTemplateBlob() {
+  const templateUrl = './templates/invoice.docx';
+
+  try {
+    const response = await fetch(templateUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Template not found');
+    return await response.blob();
+  } catch (error) {
+    if (!window.INVOICE_TEMPLATE_BASE64) {
+      throw new Error('The invoice template could not be loaded from templates/invoice.docx.');
+    }
+    const binary = atob(window.INVOICE_TEMPLATE_BASE64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  }
+}
+
+async function renderInvoiceDocx(inv) {
+  if (!window.PizZip || !window.docxtemplater) {
+    throw new Error('The DOCX rendering library could not be loaded. Refresh the app and try again.');
   }
 
-  const zip = new window.PizZip(window.INVOICE_TEMPLATE_BASE64, { base64: true });
+  const templateBlob = await getInvoiceTemplateBlob();
+  const templateArrayBuffer = await templateBlob.arrayBuffer();
+  const zip = new window.PizZip(templateArrayBuffer);
   const document = new window.docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
@@ -1633,7 +1609,6 @@ function renderInvoiceDocx(inv) {
 
   document.render({
     DATE: displayDate,
-    REF: inv.ref || '',
     Name: inv.name || '',
     CNIC: inv.cnic || '',
     Contact: inv.contact || '',
@@ -1672,7 +1647,7 @@ function exportWordById() {
 
 async function exportWordInv(inv) {
   try {
-    const blob = renderInvoiceDocx(inv);
+    const blob = await renderInvoiceDocx(inv);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1699,9 +1674,9 @@ async function exportWordInv(inv) {
 // ══════════════════════════════════════════
 function exportCSV() {
   const filtered = getFiltered();
-  const headers = ['ID','Ref','Date','Name','CNIC','Contact','Address','VIN','Motor','Colour','Particular','Qty','Amount','AmtExTx','SalesTx','Total','Mode','Bank','DealtBy'];
+  const headers = ['ID','Date','Name','CNIC','Contact','Address','VIN','Motor','Colour','Particular','Qty','Amount','AmtExTx','SalesTx','Total','Mode','Bank','DealtBy'];
   const rows = filtered.map(i => [
-    i.id, i.ref, i.date, i.name, i.cnic, i.contact, i.address,
+    i.id, i.date, i.name, i.cnic, i.contact, i.address,
     i.vin, i.motor, i.colour, i.particular, i.quantity, i.amount,
     i.amtEx, i.salesTx, i.total, i.mode, i.bank, i.dealtBy
   ].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`));
@@ -1892,8 +1867,6 @@ function updateGsDot(connected) {
 //  SETTINGS
 // ══════════════════════════════════════════
 function saveSettings() {
-  settings.refYear = document.getElementById('s-ref-year').value.trim();
-  settings.refNext = parseInt(document.getElementById('s-ref-next').value)||1;
   settings.dealtBy = document.getElementById('s-dealt-by').value.trim();
   delete settings.gsUrl;
   save();
